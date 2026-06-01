@@ -4,7 +4,7 @@ import { WalletConnect } from "@/components/WalletConnect";
 const links = [
   { href: "/marketplace", label: "Marketplace" },
   { href: "/orders", label: "Orders" },
-  { href: "/admin", label: "Contracts" }
+  { href: "/contracts", label: "Contracts" }
 ];
 
 export function Navbar() {

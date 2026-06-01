@@ -11,7 +11,7 @@ const benefits = [
 
 export default function HomePage() {
   return (
-    <main>
+    <main className="bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_56%,#eef2f7_100%)] text-zinc-950 dark:bg-[linear-gradient(180deg,#18181b_0%,#09090b_56%,#09090b_100%)] dark:text-white">
       <section className="mx-auto grid w-full max-w-[1200px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-16">
         <div className="flex flex-col justify-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-200">Arc Unified Balance Demo</p>
@@ -38,7 +38,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-xl shadow-zinc-200/60 dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-black/20">
+        <div className="rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-xl shadow-zinc-200/60 backdrop-blur dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-black/20">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-white/10">
             <div>
               <p className="text-sm font-semibold text-zinc-950 dark:text-white">Demo checkout</p>

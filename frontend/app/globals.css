@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
 }
@@ -37,24 +39,19 @@ a {
   color: #064e3b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-  }
+html.dark {
+  color-scheme: dark;
+  background: #09090b;
+}
 
-  html {
-    background: #09090b;
-  }
+html.dark body {
+  background:
+    linear-gradient(180deg, rgba(24, 24, 27, 0.92) 0%, rgba(9, 9, 11, 1) 42%),
+    #09090b;
+  color: #f4f4f5;
+}
 
-  body {
-    background:
-      linear-gradient(180deg, rgba(24, 24, 27, 0.92) 0%, rgba(9, 9, 11, 1) 42%),
-      #09090b;
-    color: #f4f4f5;
-  }
-
-  ::selection {
-    background: rgba(110, 231, 183, 0.35);
-    color: #ffffff;
-  }
+html.dark ::selection {
+  background: rgba(110, 231, 183, 0.35);
+  color: #ffffff;
 }
