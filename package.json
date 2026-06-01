@@ -1,0 +1,17 @@
+{
+  "name": "arcvoucher",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @arcvoucher/frontend --filter @arcvoucher/backend run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "format": "pnpm -r run format",
+    "contracts:build": "pnpm --filter @arcvoucher/contracts run build",
+    "contracts:test": "pnpm --filter @arcvoucher/contracts run test",
+    "frontend:dev": "pnpm --filter @arcvoucher/frontend run dev",
+    "backend:dev": "pnpm --filter @arcvoucher/backend run dev"
+  }
+}
