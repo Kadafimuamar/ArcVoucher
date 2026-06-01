@@ -1,6 +1,7 @@
 import { keccak256, stringToHex, type Address } from "viem";
 import { account, config, publicClient, walletClient } from "../clients/viem.js";
 import { arcVoucherStoreAbi } from "../contracts/arcVoucherStore.js";
+import type { StoredIntent } from "../intents/types.js";
 import { generateMockVoucherCode } from "../vouchers/mockVoucher.js";
 import type { StoredVoucher } from "../vouchers/types.js";
 import { voucherStore } from "../vouchers/voucherStore.js";
@@ -13,6 +14,10 @@ export type OrderPaidEvent = {
 };
 
 const processingOrderIds = new Set<string>();
+
+export function getIntentVoucherId(intentId: string): string {
+  return `intent:${intentId}`;
+}
 
 export async function fulfillPaidOrder(order: OrderPaidEvent): Promise<void> {
   const orderId = order.orderId.toString();
@@ -90,4 +95,41 @@ export async function fulfillPaidOrder(order: OrderPaidEvent): Promise<void> {
   } finally {
     processingOrderIds.delete(orderId);
   }
+}
+
+export async function fulfillVerifiedIntent(intent: StoredIntent): Promise<StoredVoucher> {
+  const voucherId = getIntentVoucherId(intent.intentId);
+  const existing = voucherStore.get(voucherId);
+
+  if (existing?.status === "fulfilled") {
+    console.log(
+      `[fulfillment] Unified Balance voucher already exists orderId=${voucherId} buyer=${existing.buyer} productId=${existing.productId} status=${existing.status}`
+    );
+    return existing;
+  }
+
+  const now = new Date().toISOString();
+  const voucherCode = generateMockVoucherCode(BigInt(intent.intentId), BigInt(intent.productId));
+  const voucherHash = keccak256(stringToHex(voucherCode));
+  console.log(
+    `[fulfillment] generating Unified Balance voucher orderId=${voucherId} buyer=${intent.buyer} productId=${intent.productId} amountPaid=${intent.expectedAmount}`
+  );
+  const voucher: StoredVoucher = {
+    amountPaid: intent.expectedAmount,
+    buyer: intent.buyer,
+    createdAt: existing?.createdAt ?? now,
+    orderId: voucherId,
+    productId: intent.productId,
+    status: "fulfilled",
+    txHash: intent.spendTxHash ?? null,
+    updatedAt: now,
+    voucherCode,
+    voucherHash
+  };
+
+  await voucherStore.upsert(voucher);
+  console.log(
+    `[fulfillment] stored Unified Balance voucher orderId=${voucher.orderId} buyer=${voucher.buyer} productId=${voucher.productId} status=${voucher.status}`
+  );
+  return voucher;
 }

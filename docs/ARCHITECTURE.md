@@ -90,6 +90,10 @@ Contract:
 
 ArcVoucherStore.sol
 
+ArcVoucherPaymentReceiver.sol
+
+ArcVoucherIntentPaymentReceiver.sol
+
 Responsibilities:
 
 * Product storage
@@ -99,6 +103,48 @@ Responsibilities:
 * Escrow
 * Refund
 * Fulfillment proof
+
+## Payment Receiver
+
+ArcVoucherPaymentReceiver is the v0.2.1 integration bridge for Unified Balance spend payments.
+
+Responsibilities:
+
+* Receive native Arc USDC from App Kit Unified Balance flows
+* Store pending unified payment records
+* Preserve original buyer address in receiver state and events
+* Let owner/backend settle a received payment into ArcVoucherStore
+* Refund unsettled unified payments
+
+Important limitation:
+
+* ArcVoucherStore.buyProduct(productId) records `msg.sender` as buyer.
+* When ArcVoucherPaymentReceiver settles into ArcVoucherStore, the store order buyer is the receiver contract.
+* The original wallet buyer is preserved in ArcVoucherPaymentReceiver events and payment records.
+* This is acceptable for testnet/demo v0.2.1.
+* v0.3.0 should add `buyProductFor(address buyer, uint256 productId)` or equivalent to preserve the original buyer directly in ArcVoucherStore orders.
+
+## Intent Payment Receiver
+
+ArcVoucherIntentPaymentReceiver is the v0.2.4 bridge for real App Kit Unified Balance raw spend delivery.
+
+Responsibilities:
+
+* Create backend-controlled checkout intents with buyer, product, expected amount, and reference id
+* Receive raw native Arc USDC payments through `receive()`
+* Store raw payment records separately from checkout intents
+* Let owner/backend attach an exact-value raw payment to a matching intent
+* Settle attached intents into ArcVoucherStore
+* Refund attached intents to the original buyer
+* Cancel unpaid created intents
+
+Important limitation:
+
+* App Kit `unifiedBalance.spend()` cannot send calldata in the installed SDK version.
+* Raw spend delivery can reach `receive()`, but not `receiveUnifiedPayment(...)`.
+* ArcVoucherIntentPaymentReceiver preserves the original buyer in intent state and events.
+* ArcVoucherStore orders settled by the receiver still record the receiver contract as buyer.
+* v0.3.0 should still add `buyProductFor(address buyer, uint256 productId)` or an equivalent signature-gated function.
 
 ---
 

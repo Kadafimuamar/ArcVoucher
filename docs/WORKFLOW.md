@@ -1,306 +1,185 @@
-# WORKFLOW.md
-
 # ArcVoucher Workflow
 
 ## Buyer Flow
 
-Open Marketplace
+1. Open marketplace.
+2. Connect wallet.
+3. Select voucher.
+4. Check on-chain stock.
+5. Choose payment method.
+6. Complete checkout.
+7. Wait for voucher fulfillment.
+8. Reveal voucher from the purchasing wallet.
 
-↓
+## Payment Logic
 
-Connect Wallet
+### Case A: Direct Arc Payment
 
-↓
+Use when the buyer already has Arc native USDC.
 
-Check Unified Balance
+1. Frontend calls `ArcVoucherStore.buyProduct(productId)`.
+2. Buyer sends `msg.value == product.price`.
+3. `ArcVoucherStore` creates an on-chain order.
+4. Backend detects `OrderPaid`.
+5. Backend generates the mock voucher.
+6. Backend stores voucher plaintext off-chain.
+7. Backend stores voucher hash on-chain with `fulfillOrder`.
 
-↓
+### Case B: Bridge Then Direct Payment
 
-Select Voucher
+Use when the buyer has USDC on another chain but wants to complete the standard on-chain Arc checkout.
 
-↓
+1. Buyer bridges USDC to Arc.
+2. Buyer uses Direct Arc Payment.
+3. `ArcVoucherStore.buyProduct(productId)` creates the order.
 
-Check Onchain Stock
+### Case C: Swap Then Direct Payment
 
-↓
+Use when the buyer has another supported asset.
 
-Pay With USDC
+1. Buyer swaps to USDC.
+2. Buyer moves or receives USDC on Arc.
+3. Buyer uses Direct Arc Payment.
 
-↓
+### Case D: Unified Balance Payment
 
-Order Created Onchain
+`unifiedBalance.spend()` does not execute recipient contract code. It delivers funds through Gateway/Forwarding flow and returns spend evidence.
 
-↓
+ArcVoucher v0.2.x uses backend intent verification:
 
-Backend Detects Event
+1. Frontend creates a backend intent with buyer, product, expected amount, and reference id.
+2. Frontend executes `unifiedBalance.spend()`.
+3. Frontend sends spend evidence to `POST /intents/:id/confirm-spend`.
+4. Backend verifies the Arc transaction receipt, recipient, amount, buyer, expiry, and tx reuse.
+5. Backend marks the intent as paid.
+6. Backend generates and stores the mock voucher under the original buyer address.
+7. Frontend polls `GET /intents/:id` until the voucher is ready.
+8. Frontend can reveal through `GET /intents/:id/voucher?buyer=0x...`.
 
-↓
+Do not wait for `ArcVoucherIntentPaymentReceiver.receive()` or `RawPaymentReceived` for Unified Balance checkout.
 
-Voucher Generated
+## Stock Workflow
 
-↓
+1. Admin adds product.
+2. Admin adds stock.
+3. Product becomes available.
+4. Buyer purchases.
+5. Stock decreases.
+6. Order or verified intent is created.
 
-Order Fulfilled
+## Fulfillment Workflow
 
-↓
+### Direct Arc Orders
 
-Voucher Revealed
+1. `OrderPaid` event is detected.
+2. Backend generates voucher.
+3. Backend hashes voucher.
+4. Backend calls `fulfillOrder(orderId, voucherHash)`.
+5. Buyer reveals voucher from backend if wallet matches order buyer.
 
----
+### Unified Balance v0.2.x Intents
 
-# Payment Logic
+1. Spend evidence is confirmed.
+2. Backend generates voucher.
+3. Backend hashes voucher locally.
+4. Backend stores voucher under `intent:{intentId}`.
+5. Buyer reveals voucher if wallet matches intent buyer.
 
-## Case A
+Voucher plaintext is never stored on-chain.
 
-User already has USDC on Arc.
+## Refund Workflow
 
-Frontend
+### Direct Arc Orders
 
-↓
+1. `OrderPaid` is detected.
+2. Fulfillment fails.
+3. Backend or owner calls `refundOrder(orderId)`.
+4. Arc native USDC is returned through the store contract.
 
-Send Payment
+### Unified Balance v0.2.x Intents
 
-↓
+Unified Balance v0.2.x uses backend-verified payment plus off-chain voucher fulfillment. Refund handling is manual for testnet until v0.3 introduces buyer-preserving on-chain settlement.
 
-Contract buyProduct()
+## Smart Contract Build Order
 
----
+1. Product storage.
+2. Stock storage.
+3. Order storage.
+4. Buy product.
+5. Fulfillment.
+6. Refund.
+7. Revenue withdrawal.
+8. Buyer-preserving v0.3 settlement.
 
-## Case B
+## Frontend Build Order
 
-User has USDC on another chain.
+1. Wallet connect.
+2. Product list.
+3. Product detail.
+4. Direct checkout.
+5. Order history.
+6. Voucher reveal.
+7. Unified Balance deposit.
+8. Unified Balance spend evidence confirmation.
+9. Bridge.
+10. Swap.
 
-Frontend
+## Backend Build Order
 
-↓
+1. Direct order event listener.
+2. Mock voucher generator.
+3. Voucher storage.
+4. Direct order fulfillment service.
+5. Unified Balance intent storage.
+6. Unified Balance spend verification.
+7. Unified Balance intent voucher reveal.
+8. Refund service.
+9. Distributor integration.
 
-Bridge USDC
+## Milestones
 
-↓
+### Milestone 1: Smart Contract MVP
 
-Arc
+- Product state.
+- Stock state.
+- Order state.
 
-↓
+### Milestone 2: Marketplace UI
 
-buyProduct()
+- Product cards.
+- Stock display.
+- Checkout.
 
----
+### Milestone 3: USDC Payments
 
-## Case C
+- Direct Arc native USDC payment.
+- Unified Balance spend evidence verification.
 
-User has supported stablecoin.
+### Milestone 4: Voucher Fulfillment
 
-Frontend
+- Mock voucher.
+- Voucher hash on-chain for direct orders.
+- Off-chain voucher reveal.
 
-↓
+### Milestone 5: App Kit Integration
 
-Swap
+- Unified Balance.
+- Bridge.
+- Swap.
 
-↓
+### Milestone 6: Cross-Chain Checkout
 
-USDC
+Users can spend USDC from multiple chains through Unified Balance, and ArcVoucher verifies payment evidence before preparing the voucher.
 
-↓
-
-buyProduct()
-
----
-
-## Case D
-
-User has USDC across chains.
-
-Frontend
-
-↓
-
-Unified Balance
-
-↓
-
-Spend
-
-↓
-
-buyProduct()
-
----
-
-# Stock Workflow
-
-Admin Add Product
-
-↓
-
-Admin Add Stock
-
-↓
-
-Stock Available
-
-↓
-
-Buyer Purchase
-
-↓
-
-Stock Reduced
-
-↓
-
-Order Created
-
----
-
-# Fulfillment Workflow
-
-OrderPaid Event
-
-↓
-
-Backend Listener
-
-↓
-
-Generate Voucher
-
-↓
-
-Encrypt Voucher
-
-↓
-
-Hash Voucher
-
-↓
-
-fulfillOrder()
-
-↓
-
-Voucher Delivered
-
----
-
-# Refund Workflow
-
-OrderPaid
-
-↓
-
-Fulfillment Failed
-
-↓
-
-refundOrder()
-
-↓
-
-USDC Returned
-
----
-
-# Smart Contract Build Order
-
-1. Product Storage
-2. Stock Storage
-3. Order Storage
-4. Buy Product
-5. Fulfillment
-6. Refund
-7. Revenue Withdraw
-
----
-
-# Frontend Build Order
-
-1. Wallet Connect
-2. Product List
-3. Product Detail
-4. Checkout
-5. Order History
-6. Voucher Reveal
-7. Unified Balance
-8. Bridge
-9. Swap
-
----
-
-# Backend Build Order
-
-1. Event Listener
-2. Mock Voucher Generator
-3. Voucher Encryption
-4. Fulfillment Service
-5. Refund Service
-6. Distributor Integration
-
----
-
-# Milestone 1
-
-Smart Contract MVP
-
-* Product
-* Stock
-* Orders
-
----
-
-# Milestone 2
-
-Marketplace UI
-
-* Product Cards
-* Stock Display
-* Checkout
-
----
-
-# Milestone 3
-
-USDC Payments
-
-* Send
-* Escrow
-
----
-
-# Milestone 4
-
-Voucher Fulfillment
-
-* Mock Voucher
-* Voucher Delivery
-
----
-
-# Milestone 5
-
-App Kit Integration
-
-* Bridge
-* Swap
-* Unified Balance
-
----
-
-# Milestone 6
-
-Cross-Chain Checkout
-
-User can spend USDC from multiple chains through a single ArcVoucher checkout flow.
-
----
-
-# Codex Rules
+## Codex Rules
 
 Before implementing:
 
-1. Read docs folder first.
+1. Read docs first.
 2. Follow Arc documentation.
 3. Do not invent APIs.
 4. Use App Kit patterns.
 5. Keep business logic modular.
 6. Prefer on-chain state when possible.
 7. Never store voucher plaintext on-chain.
+8. Do not use receiver events as Unified Balance spend callbacks.

@@ -31,16 +31,39 @@ export class VoucherStore {
     return this.vouchers.has(orderId);
   }
 
+  list(): StoredVoucher[] {
+    return [...this.vouchers.values()].sort(compareVoucherIds);
+  }
+
   async upsert(voucher: StoredVoucher): Promise<void> {
     this.vouchers.set(voucher.orderId, voucher);
     await this.persist();
   }
 
   private async persist(): Promise<void> {
-    const records = [...this.vouchers.values()].sort((a, b) => Number(BigInt(a.orderId) - BigInt(b.orderId)));
+    const records = this.list();
     await writeFile(storagePath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
   }
 }
 
 export const voucherStore = new VoucherStore();
 
+function compareVoucherIds(a: StoredVoucher, b: StoredVoucher) {
+  const numericA = getSortableOrderId(a.orderId);
+  const numericB = getSortableOrderId(b.orderId);
+
+  if (numericA !== undefined && numericB !== undefined) {
+    return Number(numericA - numericB);
+  }
+
+  return a.orderId.localeCompare(b.orderId);
+}
+
+function getSortableOrderId(orderId: string) {
+  if (/^\d+$/.test(orderId)) {
+    return BigInt(orderId);
+  }
+
+  const intentMatch = orderId.match(/^intent:(\d+)$/);
+  return intentMatch ? BigInt(intentMatch[1]) : undefined;
+}
