@@ -7,7 +7,7 @@ import { WalletConnect } from "@/components/WalletConnect";
 import { StockBadge } from "@/components/StockBadge";
 import { arcTestnet } from "@/lib/chains/arc";
 import { arcVoucherStoreAbi, arcVoucherStoreAddress } from "@/lib/contracts/arcVoucherStore";
-import { formatUsdc, shortAddress } from "@/lib/format";
+import { formatUsdc } from "@/lib/format";
 import { getAvailableStock, type Product } from "@/lib/products";
 import {
   getErrorText,
@@ -184,46 +184,42 @@ export function CheckoutPanel({ onPurchaseConfirmed, onRefreshState, product }: 
   }
 
   return (
-    <section className="rounded-lg border border-white/10 bg-zinc-900/80 p-5 shadow-2xl shadow-black/30">
-      <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-5">
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-xl shadow-zinc-200/70 dark:border-white/10 dark:bg-zinc-900/80 dark:shadow-black/30">
+      <div className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-5 dark:border-white/10">
         <div>
-          <p className="text-sm font-medium text-zinc-400">{product.brand}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-white">{product.name}</h1>
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{product.brand}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-zinc-950 dark:text-white">{product.name}</h1>
         </div>
         <StockBadge active={product.active} availableStock={availableStock} />
       </div>
 
       <div className="space-y-4 py-5">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-zinc-400">Price</span>
-          <span className="text-xl font-semibold text-emerald-200">{formatUsdc(product.price)}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">Price</span>
+          <span className="text-xl font-semibold text-emerald-700 dark:text-emerald-200">{formatUsdc(product.price)}</span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-zinc-400">Network</span>
-          <span className="text-sm font-medium text-white">Arc Testnet</span>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-zinc-400">Contract</span>
-          <span className="text-sm font-medium text-white">{shortAddress(arcVoucherStoreAddress)}</span>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">Network</span>
+          <span className="text-sm font-medium text-zinc-950 dark:text-white">Arc Testnet</span>
         </div>
       </div>
 
-      <div className="space-y-3 border-t border-white/10 pt-5">
+      <div className="space-y-3 border-t border-zinc-200 pt-5 dark:border-white/10">
         <WalletConnect onAuthorizationIssue={setAuthorizationNotice} showAuthorizationMessage />
         {authorizationNotice ? (
-          <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100">
             <p className="font-semibold">Wallet authorization required</p>
-            <p className="mt-1 text-xs text-amber-100/80">{authorizationNotice}</p>
+            <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-100/80">{authorizationNotice}</p>
           </div>
         ) : null}
         {unsupportedLocalOrigin ? (
-          <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100/80">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100/80">
             Local checkout supports {supportedWalletOrigins.join(" and ")}. Current origin: {unsupportedLocalOrigin}.
           </div>
         ) : null}
         {isConnected && !isOnArcTestnet ? (
           <button
-            className="min-h-12 w-full rounded-full border border-amber-300/30 bg-amber-300/10 px-5 text-sm font-bold text-amber-100 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 w-full rounded-full border border-amber-300 bg-amber-50 px-5 text-sm font-bold text-amber-950 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100 dark:hover:bg-amber-300/15"
             disabled={isSwitchingChain}
             type="button"
             onClick={() => switchChain({ chainId: arcTestnet.id })}
@@ -232,7 +228,7 @@ export function CheckoutPanel({ onPurchaseConfirmed, onRefreshState, product }: 
           </button>
         ) : null}
         <button
-          className="min-h-12 w-full rounded-full bg-emerald-300 px-5 text-sm font-bold text-zinc-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+          className="min-h-12 w-full rounded-full bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:bg-emerald-300 dark:text-zinc-950 dark:hover:bg-emerald-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
           disabled={buyDisabled}
           type="button"
           onClick={handleBuy}
@@ -246,17 +242,19 @@ export function CheckoutPanel({ onPurchaseConfirmed, onRefreshState, product }: 
             productActive: product.active
           })}
         </button>
-        <TransactionStatus
-          errorMessage={errorMessage}
-          explorerTxUrl={explorerTxUrl}
-          hash={hash}
-          onRefreshState={handleRefreshState}
-          onResetTransaction={handleResetTransaction}
-          submittedAt={submittedAt}
-          state={transactionState}
-        />
+        {isConnected && transactionState !== "idle" ? (
+          <TransactionStatus
+            errorMessage={errorMessage}
+            explorerTxUrl={explorerTxUrl}
+            hash={hash}
+            onRefreshState={handleRefreshState}
+            onResetTransaction={handleResetTransaction}
+            submittedAt={submittedAt}
+            state={transactionState}
+          />
+        ) : null}
         <Link
-          className="block rounded-full border border-white/10 px-5 py-3 text-center text-sm font-semibold text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.04]"
+          className="block min-h-11 rounded-full border border-zinc-200 px-5 py-3 text-center text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/[0.04]"
           href={`/product/${product.id}`}
         >
           Product details
@@ -285,12 +283,12 @@ function TransactionStatus({
 }) {
   const tone =
     state === "failed"
-      ? "border-red-400/25 bg-red-400/10 text-red-100"
+      ? "border-red-200 bg-red-50 text-red-950 dark:border-red-400/25 dark:bg-red-400/10 dark:text-red-100"
       : state === "success"
-        ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-300/25 dark:bg-emerald-300/10 dark:text-emerald-100"
         : state === "still confirming"
-          ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-        : "border-white/10 bg-white/[0.04] text-zinc-300";
+          ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100"
+        : "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300";
   const message = getTransactionStatusMessage(state);
   const canReset = state !== "idle";
 
@@ -320,17 +318,17 @@ function TransactionStatus({
           </a>
         </div>
       ) : null}
-      {state === "failed" && errorMessage ? <p className="mt-2 line-clamp-3 text-xs text-red-100/80">{errorMessage}</p> : null}
+      {state === "failed" && errorMessage ? <p className="mt-2 line-clamp-3 text-xs text-red-800 dark:text-red-100/80">{errorMessage}</p> : null}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <button
-          className="min-h-10 rounded-full border border-white/10 px-4 text-xs font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.04]"
+          className="min-h-11 rounded-full border border-zinc-300 px-4 text-xs font-semibold text-zinc-800 transition hover:bg-white dark:border-white/10 dark:text-white dark:hover:border-white/20 dark:hover:bg-white/[0.04]"
           type="button"
           onClick={onRefreshState}
         >
           Refresh product/order state
         </button>
         <button
-          className="min-h-10 rounded-full border border-white/10 px-4 text-xs font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-11 rounded-full border border-zinc-300 px-4 text-xs font-semibold text-zinc-800 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:border-white/20 dark:hover:bg-white/[0.04]"
           disabled={!canReset}
           type="button"
           onClick={onResetTransaction}

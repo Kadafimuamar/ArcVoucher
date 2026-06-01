@@ -47,34 +47,34 @@ export function getUnifiedBalanceUiState({
   }
 
   if (intent?.status === "paid" || localStatus === "preparing voucher" || localStatus === "payment confirmed") {
-    return buildState("voucher", "Payment confirmed. Preparing your voucher.", "Usually 10-60 seconds", false, "store_order");
+    return buildState("voucher", "Payment confirmed. Preparing your voucher.", "Usually less than a minute", false, "store_order");
   }
 
   if (intent?.status === "settled") {
-    return buildState("voucher", "Order created. Preparing your voucher.", "Usually 10-60 seconds", false, "store_order");
+    return buildState("voucher", "Payment confirmed. Preparing your voucher.", "Usually less than a minute", false, "store_order");
   }
 
   if (intent?.status === "payment_attached" || hasReceiverPayment) {
-    return buildState("store_order", "Payment confirmed. Creating your voucher order.", "Usually 10-60 seconds", false, "receiver");
+    return buildState("store_order", "Payment confirmed. Preparing your voucher.", "Usually less than a minute", false, "receiver");
   }
 
   if (spendSubmitted || localStatus === "spend submitted" || localStatus === "verifying payment" || localStatus === "waiting receiver payment") {
-    return buildState("receiver", "Unified Balance payment sent. Verifying payment.", "Usually 10-60 seconds", false, "spend");
+    return buildState("receiver", "Payment sent. Confirming payment...", "Usually less than a minute", false, "spend");
   }
 
   if (localStatus === "waiting wallet confirmation" || localStatus === "preparing intent" || localStatus === "estimating fees") {
-    return buildState("spend", "Confirm the Unified Balance payment in your wallet.", "Usually 30-90 seconds", false, hasSufficientBalance ? "deposit" : undefined);
+    return buildState("spend", "Confirm the payment in your wallet.", "Usually 30-90 seconds", false, hasSufficientBalance ? "deposit" : undefined);
   }
 
   if (pendingDeposit && pendingDeposit.status !== "balance_updated") {
-    return buildState("deposit", "Deposit confirmed. Waiting for Gateway balance update.", "Usually 1-5 minutes");
+    return buildState("deposit", "Deposit confirmed. Updating your balance.", "Usually 1-5 minutes");
   }
 
   if (!hasSufficientBalance) {
-    return buildState("deposit", "Deposit USDC into Unified Balance to continue.", "Usually 1-5 minutes");
+    return buildState("deposit", "Deposit USDC to continue.", "Usually 1-5 minutes");
   }
 
-  return buildState("spend", "Unified Balance is ready. You can pay now.", "Usually 30-90 seconds", false, "deposit");
+  return buildState("spend", "Ready to pay.", "Usually 30-90 seconds", false, "deposit");
 }
 
 function buildState(
@@ -88,10 +88,10 @@ function buildState(
   const labels: Record<UnifiedBalanceSessionStep, string> = {
     deposit: "Deposit",
     failed: "Failed",
-    receiver: "Payment verification",
-    spend: "Spend",
-    store_order: "Store order",
-    voucher: "Voucher ready"
+    receiver: "Pay",
+    spend: "Pay",
+    store_order: "Pay",
+    voucher: "Voucher"
   };
   const activeStep = currentStep === "failed" ? "spend" : currentStep;
   const doneIndex = doneThrough ? stepOrder.indexOf(doneThrough) : stepOrder.indexOf(activeStep) - 1;

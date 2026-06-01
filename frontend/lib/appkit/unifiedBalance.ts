@@ -188,9 +188,9 @@ export function buildUnifiedBalanceSpendPreparation({
 }
 
 export const unifiedBalanceCheckoutStages: { id: UnifiedBalanceCheckoutStage; label: string }[] = [
-  { id: "spend", label: "Unified Balance spend" },
-  { id: "receiver", label: "Payment verification" },
-  { id: "settlement", label: "Voucher preparation" }
+  { id: "spend", label: "Pay with Unified Balance" },
+  { id: "receiver", label: "Payment Verification" },
+  { id: "settlement", label: "Voucher Ready" }
 ];
 
 export function parseUnifiedBalanceSpendResult(result: unknown): UnifiedBalanceSpendEvidence {

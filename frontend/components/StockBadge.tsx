@@ -13,10 +13,10 @@ export function StockBadge({ active, availableStock }: { active: boolean; availa
 
   const tone =
     state === "Out of Stock"
-      ? "border-red-400/30 bg-red-400/10 text-red-200"
+      ? "border-red-200 bg-red-50 text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200"
       : state === "Low Stock"
-        ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
-        : "border-emerald-300/30 bg-emerald-300/10 text-emerald-100";
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-300/10 dark:text-emerald-100";
 
   return (
     <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${tone}`}>

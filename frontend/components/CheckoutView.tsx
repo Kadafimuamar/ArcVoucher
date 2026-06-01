@@ -1,14 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Hex } from "viem";
 import { useAccount, useSwitchChain } from "wagmi";
 import { CheckoutPanel } from "@/components/CheckoutPanel";
 import { EmptyState, LoadingProductDetail, StateNotice } from "@/components/ReadState";
-import { UnifiedBalanceAdvancedDetails } from "@/components/UnifiedBalanceAdvancedDetails";
 import { UnifiedBalanceDepositCard } from "@/components/UnifiedBalanceDepositCard";
-import { UnifiedBalanceSources } from "@/components/UnifiedBalanceSources";
 import { UnifiedBalanceStatusPanel } from "@/components/UnifiedBalanceStatusPanel";
 import { UnifiedBalanceStepper } from "@/components/UnifiedBalanceStepper";
 import { WalletConnect } from "@/components/WalletConnect";
@@ -18,14 +17,12 @@ import type {
   UnifiedBalanceDepositStatus,
   UnifiedBalancePendingDeposit,
   UnifiedBalanceSnapshot,
-  UnifiedBalanceSpendEvidence,
-  UnifiedBalanceStatus
+  UnifiedBalanceSpendEvidence
 } from "@/lib/appkit/types";
 import {
   depositToUnifiedBalance,
   getUnifiedBalanceDepositErrorMessage,
-  switchWalletToUnifiedBalanceSourceChain,
-  unifiedBalancePendingDepositSupportMessage
+  switchWalletToUnifiedBalanceSourceChain
 } from "@/lib/appkit/unifiedBalanceDeposit";
 import { getUnifiedBalanceUiState } from "@/lib/appkit/unifiedBalanceCheckoutUi";
 import {
@@ -35,7 +32,6 @@ import {
   type UnifiedBalanceSessionStep
 } from "@/lib/appkit/unifiedBalanceSession";
 import {
-  buildUnifiedBalanceSpendPreparation,
   buildUnifiedBalanceAllocations,
   checkUnifiedBalance,
   estimateUnifiedBalanceSpend,
@@ -93,18 +89,14 @@ export function CheckoutView({ productId }: { productId: number }) {
   const [depositEvidence, setDepositEvidence] = useState<UnifiedBalanceDepositEvidence | undefined>();
   const [depositError, setDepositError] = useState<string | undefined>();
   const [pendingDeposit, setPendingDeposit] = useState<UnifiedBalancePendingDeposit | undefined>();
-  const [pendingDepositElapsedSeconds, setPendingDepositElapsedSeconds] = useState(0);
-  const [isCheckingPendingDeposits, setIsCheckingPendingDeposits] = useState(false);
   const [sessionRestored, setSessionRestored] = useState(false);
   const [currentStepStartedAt, setCurrentStepStartedAt] = useState(0);
-  const [stepElapsedSeconds, setStepElapsedSeconds] = useState(0);
   const [previousUiStep, setPreviousUiStep] = useState<UnifiedBalanceSessionStep | undefined>();
   const { product, isFallback, isLoading, refetch } = useArcVoucherProduct(productId);
   const amountRequired = product ? getProductPriceAsUsdcAmount(product.price) : "0";
   const depositDisplayAmount = depositAmount ?? amountRequired;
   const selectedDepositChainId = depositChainId ?? selectedChainIds[0] ?? supportedChains[0]?.id;
   const selectedDepositChain = supportedChains.find((chain) => chain.id === selectedDepositChainId) ?? supportedChains[0];
-  const currentWalletSourceChain = supportedChains.find((chain) => chain.evmChainId === chainId);
   const isDepositChainMismatch = Boolean(isConnected && selectedDepositChain?.evmChainId && chainId !== selectedDepositChain.evmChainId);
   const referenceId =
     preparedReference && preparedReference.buyer === address && preparedReference.productId === product?.id
@@ -156,23 +148,6 @@ export function CheckoutView({ productId }: { productId: number }) {
     ],
     retry: false
   });
-  const unifiedPreparation = useMemo(
-    () =>
-      address && product && referenceId
-        ? buildUnifiedBalanceSpendPreparation({
-            allocations: allocationState.allocations,
-            amount: amountRequired,
-            amountWei: product.price,
-            buyer: address,
-            estimatedFees: feeEstimateQuery.data,
-            productId: product.id,
-            receiverAddress: arcVoucherIntentPaymentReceiverAddress,
-            referenceId,
-            selectedChainIds
-          })
-        : undefined,
-    [address, allocationState.allocations, amountRequired, feeEstimateQuery.data, product, referenceId, selectedChainIds]
-  );
   const intentStatusQuery = useIntentStatus(backendIntent?.intentId);
   const currentIntent = intentStatusQuery.data?.intent ?? backendIntent;
   const displayedUnifiedStatus = getDisplayedUnifiedStatus({
@@ -192,16 +167,7 @@ export function CheckoutView({ productId }: { productId: number }) {
     pendingDeposit,
     spendSubmitted: Boolean(spendEvidence?.txHash || spendEvidence?.transferId)
   });
-  const unifiedBalanceStatus = getUnifiedBalanceStatus({
-    balanceError: balanceQuery.isError,
-    hasSufficientBalance: allocationState.hasSufficientBalance,
-    isConnected,
-    isLoading: balanceQuery.isLoading,
-    supportedChains
-  });
-  const pendingTransactions = selectedDepositChain
-    ? (balanceQuery.data?.breakdown.find((balance) => balance.chain === selectedDepositChain.id)?.pendingTransactions ?? [])
-    : [];
+  const selectedChainBalance = selectedDepositChainId ? getBalanceForChain(balanceQuery.data, selectedDepositChainId) : "0";
   const confirmSpendWithBackend = useCallback(
     async (intent: StoredIntent, evidence: UnifiedBalanceSpendEvidence) => {
       if (!address || !product) {
@@ -347,20 +313,11 @@ export function CheckoutView({ productId }: { productId: number }) {
       const stepTimeout = window.setTimeout(() => {
         setPreviousUiStep(uiState.currentStep);
         setCurrentStepStartedAt(Date.now());
-        setStepElapsedSeconds(0);
       }, 0);
 
       return () => window.clearTimeout(stepTimeout);
     }
   }, [previousUiStep, uiState.currentStep]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setStepElapsedSeconds(Math.floor((Date.now() - currentStepStartedAt) / 1000));
-    }, 1_000);
-
-    return () => window.clearInterval(interval);
-  }, [currentStepStartedAt]);
 
   useEffect(() => {
     if (!address || !product || !currentIntent || currentIntent.status !== "created" || !spendEvidence?.txHash) {
@@ -513,31 +470,6 @@ export function CheckoutView({ productId }: { productId: number }) {
     setUnifiedCheckoutStatus("idle");
   }
 
-  async function handleCheckPendingDeposits() {
-    setIsCheckingPendingDeposits(true);
-
-    try {
-      const result = await balanceQuery.refetch();
-      if (pendingDeposit && result.data) {
-        setPendingDeposit((current) =>
-          current
-            ? {
-                ...current,
-                status: getPendingDepositBalanceStatus({
-                  amount: current.amount,
-                  snapshot: result.data,
-                  sourceChainId: current.sourceChainId,
-                  startingConfirmedBalance: current.startingConfirmedBalance
-                })
-              }
-            : current
-        );
-      }
-    } finally {
-      setIsCheckingPendingDeposits(false);
-    }
-  }
-
   function startPostDepositBalancePolling({
     amount,
     evidence,
@@ -552,7 +484,6 @@ export function CheckoutView({ productId }: { productId: number }) {
     const confirmedAt = Date.now();
 
     clearDepositPollingTimers(balancePollingIntervalRef, balancePollingTimeoutRef, depositElapsedIntervalRef);
-    setPendingDepositElapsedSeconds(0);
     setPendingDeposit({
       amount,
       confirmedAt,
@@ -564,9 +495,7 @@ export function CheckoutView({ productId }: { productId: number }) {
       txHash: evidence.txHash
     });
 
-    const pollGatewayBalance = async () => {
-      setIsCheckingPendingDeposits(true);
-
+    const pollBalance = async () => {
       try {
         const result = await balanceQuery.refetch();
         const nextStatus = result.data
@@ -583,21 +512,18 @@ export function CheckoutView({ productId }: { productId: number }) {
         if (nextStatus === "balance_updated") {
           clearDepositPollingTimers(balancePollingIntervalRef, balancePollingTimeoutRef, depositElapsedIntervalRef);
         }
-      } finally {
-        setIsCheckingPendingDeposits(false);
+      } catch {
+        setPendingDeposit((current) => (current ? { ...current, status: "waiting_gateway" } : current));
       }
     };
 
-    void pollGatewayBalance();
+    void pollBalance();
     balancePollingIntervalRef.current = window.setInterval(() => {
-      void pollGatewayBalance();
+      void pollBalance();
     }, 10_000);
     balancePollingTimeoutRef.current = window.setTimeout(() => {
       clearDepositPollingTimers(balancePollingIntervalRef, balancePollingTimeoutRef, depositElapsedIntervalRef);
     }, 180_000);
-    depositElapsedIntervalRef.current = window.setInterval(() => {
-      setPendingDepositElapsedSeconds(Math.floor((Date.now() - confirmedAt) / 1000));
-    }, 1_000);
   }
 
   if (isLoading) {
@@ -606,17 +532,19 @@ export function CheckoutView({ productId }: { productId: number }) {
 
   if (!product) {
     return (
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 lg:px-8">
         <EmptyState title="Product not found" message={`Product #${productId} is not available from the contract.`} />
       </main>
     );
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_420px] lg:px-8">
-      <section className="flex flex-col justify-center">
-        <p className="text-sm font-semibold uppercase text-emerald-200">Checkout</p>
-        <h1 className="mt-3 text-3xl font-black text-white sm:text-5xl">Arc USDC payment</h1>
+    <main className="mx-auto grid w-full max-w-[1200px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_460px] lg:px-8">
+      <section className="space-y-6">
+        <div>
+          <p className="text-sm font-semibold uppercase text-emerald-700 dark:text-emerald-200">Checkout</p>
+          <h1 className="mt-3 text-3xl font-black text-zinc-950 sm:text-5xl dark:text-white">Complete purchase</h1>
+        </div>
         {isFallback ? (
           <div className="mt-6">
             <StateNotice
@@ -625,33 +553,38 @@ export function CheckoutView({ productId }: { productId: number }) {
             />
           </div>
         ) : null}
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-white/10 bg-zinc-900/70 p-4">
-            <p className="text-sm text-zinc-400">Asset</p>
-            <p className="mt-2 text-lg font-semibold text-white">USDC</p>
+        <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
+          <div className={`flex h-44 items-end rounded-md ${product.surface} p-4`}>
+            <div className={`h-16 w-16 rounded-lg bg-gradient-to-br ${product.accent} shadow-lg shadow-black/20`} />
           </div>
-          <div className="rounded-lg border border-white/10 bg-zinc-900/70 p-4">
-            <p className="text-sm text-zinc-400">Network</p>
-            <p className="mt-2 text-lg font-semibold text-white">Arc Testnet</p>
+          <div className="mt-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{product.brand}</p>
+              <h2 className="mt-1 text-2xl font-bold text-zinc-950 dark:text-white">{product.name}</h2>
+            </div>
+            <p className="text-xl font-black text-emerald-700 dark:text-emerald-200">{amountRequired} USDC</p>
           </div>
-          <div className="rounded-lg border border-white/10 bg-zinc-900/70 p-4">
-            <p className="text-sm text-zinc-400">Order</p>
-            <p className="mt-2 text-lg font-semibold text-white">On-chain</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <ProductSummary label="Asset" value="USDC" />
+            <ProductSummary label="Network" value="Arc Testnet" />
+            <ProductSummary label="Delivery" value="Voucher code" />
           </div>
         </div>
 
-        <div className="mt-8 rounded-lg border border-white/10 bg-zinc-900/70 p-2">
+        <div className="rounded-lg border border-zinc-200 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
           <div className="grid grid-cols-2 gap-2">
             <PaymentModeButton active={paymentMode === "direct"} label="Direct Arc Payment" onClick={() => setPaymentMode("direct")} />
             <PaymentModeButton active={paymentMode === "unified"} label="Unified Balance" onClick={() => setPaymentMode("unified")} />
           </div>
         </div>
+
+        {paymentMode === "unified" ? <UnifiedBalanceGuide /> : null}
       </section>
 
       {paymentMode === "direct" ? (
         <CheckoutPanel onPurchaseConfirmed={refetch} onRefreshState={refetch} product={product} />
       ) : (
-        <section className="space-y-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-zinc-950 shadow-xl shadow-black/10 dark:border-white/10 dark:bg-zinc-950/40 dark:text-white">
+        <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5 text-zinc-950 shadow-xl shadow-zinc-200/60 dark:border-white/10 dark:bg-zinc-950/40 dark:text-white dark:shadow-black/10">
           <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -662,14 +595,26 @@ export function CheckoutView({ productId }: { productId: number }) {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <SummaryMetric label="Product" value={product.name} />
-            <SummaryMetric label="Price" value={`${amountRequired} USDC`} />
-            <SummaryMetric label="Payment method" value="Unified Balance" />
-            <SummaryMetric label="Balance available" value={`${allocationState.availableAmount} USDC`} />
-            <SummaryMetric label="Estimated fee" value={`${feeEstimateQuery.data?.totalFees ?? "Pending"} USDC`} />
-            <SummaryMetric label="Total required" value={`${amountRequired} USDC`} />
-          </div>
+          {allocationState.hasSufficientBalance ? (
+            <CompactSourceChainSelect
+              balance={selectedChainBalance}
+              isLoading={balanceQuery.isLoading}
+              selectedChainId={selectedDepositChainId}
+              sourceChains={supportedChains}
+              onSourceChainChange={(chainId) => {
+                setDepositChainId(chainId);
+                setSelectedChainIds([chainId]);
+              }}
+            />
+          ) : null}
+
+          <PaymentSummary
+            available={allocationState.availableAmount}
+            fee={formatEstimatedFee(feeEstimateQuery.data?.totalFees, allocationState.hasSufficientBalance)}
+            hasSufficientBalance={allocationState.hasSufficientBalance}
+            price={amountRequired}
+            productName={product.name}
+          />
 
           <UnifiedBalanceStepper steps={uiState.steps} />
 
@@ -681,7 +626,6 @@ export function CheckoutView({ productId }: { productId: number }) {
             isVoucherReady={isVoucherReady}
             pendingDeposit={pendingDeposit}
             sessionRestored={sessionRestored}
-            stepElapsedSeconds={stepElapsedSeconds}
             uiState={uiState}
             onRefresh={() => {
               void balanceQuery.refetch();
@@ -717,106 +661,57 @@ export function CheckoutView({ productId }: { productId: number }) {
               })}
             </button>
             <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
-              Direct Arc payment remains available. Unified Balance may take a few minutes while Gateway payment verification updates.
+              Your payment is processed securely. Voucher preparation usually takes less than a minute after payment confirmation.
             </p>
           </div>
 
-          <details className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-white">Deposit USDC</summary>
-            <div className="mt-4">
-              <UnifiedBalanceDepositCard
-                amount={depositDisplayAmount}
-                currentChainId={chainId}
-                currentChainLabel={getCurrentWalletChainLabel({ chainId, sourceChain: currentWalletSourceChain })}
-                disabled={!isConnected || !selectedDepositChain || isDepositChainMismatch || !isPositiveDecimal(normalizeDepositAmount(depositDisplayAmount))}
-                elapsedSeconds={pendingDepositElapsedSeconds}
-                errorMessage={depositError}
-                evidence={depositEvidence}
-                isConnected={isConnected}
-                isChainMismatch={isDepositChainMismatch}
-                isCheckingPendingDeposits={isCheckingPendingDeposits}
-                isSwitchingChain={isSwitchingDepositChain}
-                pendingDeposit={pendingDeposit}
-                pendingDepositSupportMessage={unifiedBalancePendingDepositSupportMessage}
-                pendingTransactions={pendingTransactions}
-                selectedChainId={selectedDepositChainId}
-                selectedChainLabel={selectedDepositChain?.title}
-                selectedEvmChainId={selectedDepositChain?.evmChainId}
-                sourceChains={supportedChains}
-                status={depositStatus}
-                onAmountChange={(nextAmount) => {
-                  setDepositAmount(nextAmount);
-                  setDepositError(undefined);
-                  setPendingDeposit(undefined);
-                  if (depositStatus !== "waiting_wallet") {
-                    setDepositStatus("idle");
-                  }
-                }}
-                onCheckPendingDeposits={() => {
-                  void handleCheckPendingDeposits();
-                }}
-                onDeposit={() => {
-                  void handleUnifiedBalanceDeposit();
-                }}
-                onRefreshBalance={() => {
-                  void balanceQuery.refetch();
-                }}
-                onSourceChainChange={(chainId) => {
-                  setDepositChainId(chainId);
-                  setDepositError(undefined);
-                  setSelectedChainIds([chainId]);
-                  setPendingDeposit(undefined);
-                  if (depositStatus !== "waiting_wallet") {
-                    setDepositStatus("idle");
-                  }
-                }}
-                onSwitchChain={() => {
-                  void handleSwitchDepositChain();
-                }}
-              />
-            </div>
-          </details>
+          {(!allocationState.hasSufficientBalance || pendingDeposit || depositStatus !== "idle") && (
+            <UnifiedBalanceDepositCard
+              amount={depositDisplayAmount}
+              balance={selectedChainBalance}
+              disabled={!isConnected || !selectedDepositChain || isDepositChainMismatch || !isPositiveDecimal(normalizeDepositAmount(depositDisplayAmount))}
+              errorMessage={depositError}
+              evidence={depositEvidence}
+              isConnected={isConnected}
+              isChainMismatch={isDepositChainMismatch}
+              isSwitchingChain={isSwitchingDepositChain}
+              pendingDeposit={pendingDeposit}
+              selectedChainId={selectedDepositChainId}
+              selectedChainLabel={selectedDepositChain?.title}
+              sourceChains={supportedChains}
+              status={depositStatus}
+              onAmountChange={(nextAmount) => {
+                setDepositAmount(nextAmount);
+                setDepositError(undefined);
+                setPendingDeposit(undefined);
+                if (depositStatus !== "waiting_wallet") {
+                  setDepositStatus("idle");
+                }
+              }}
+              onDeposit={() => {
+                void handleUnifiedBalanceDeposit();
+              }}
+              onSourceChainChange={(chainId) => {
+                setDepositChainId(chainId);
+                setDepositError(undefined);
+                setSelectedChainIds([chainId]);
+                setPendingDeposit(undefined);
+                if (depositStatus !== "waiting_wallet") {
+                  setDepositStatus("idle");
+                }
+              }}
+              onSwitchChain={() => {
+                void handleSwitchDepositChain();
+              }}
+            />
+          )}
 
-          <details className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-white">Source chain</summary>
-            <div className="mt-4">
-              <UnifiedBalanceSources
-                balances={balanceQuery.data}
-                isLoading={balanceQuery.isLoading}
-                selectedChainIds={selectedChainIds}
-                supportedChains={supportedChains}
-                onToggleChain={(chainId) => {
-                  setSelectedChainIds([chainId]);
-                  setDepositChainId(chainId);
-                }}
-              />
-            </div>
-          </details>
-
-          <UnifiedBalanceAdvancedDetails
-            backendError={unifiedCheckoutError ?? intentStatusQuery.error?.message}
-            intent={currentIntent}
-            intentStatus={intentStatusQuery.data}
-            preparation={unifiedPreparation}
-            receiverAddress={arcVoucherIntentPaymentReceiverAddress}
-            selectedChainIds={selectedChainIds}
-            spendEvidence={spendEvidence}
+          <NeedHelpPanel
+            canCheckVoucher={Boolean(currentIntent?.intentId)}
+            isVoucherReady={isVoucherReady}
+            orderHref={currentIntent?.intentId ? `/orders/unified/${currentIntent.intentId}` : "/orders"}
+            onRetry={handleRetryUnifiedBalance}
           />
-
-          <details className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-white">Logs</summary>
-            <div className="mt-4 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-              <p>Balance status: {getUnifiedBalanceStatusLabel(unifiedBalanceStatus)}</p>
-              <p>Fee status: {feeEstimateQuery.isLoading ? "Estimating" : feeEstimateQuery.data ? "Estimated" : getFeeEstimateMessage({
-                canEstimateFees,
-                feeError: feeEstimateQuery.error?.message,
-                hasSufficientBalance: allocationState.hasSufficientBalance,
-                isConnected,
-                selectedChainIds
-              }) ?? "Pending"}</p>
-              <p>Checkout status: {getUnifiedCheckoutStatusLabel(displayedUnifiedStatus)}</p>
-            </div>
-          </details>
         </section>
       )}
     </main>
@@ -875,7 +770,9 @@ function PaymentModeButton({ active, label, onClick }: { active: boolean; label:
   return (
     <button
       className={`min-h-11 rounded-md px-4 text-sm font-semibold transition ${
-        active ? "bg-emerald-300 text-zinc-950" : "text-zinc-300 hover:bg-white/[0.04] hover:text-white"
+        active
+          ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20 dark:bg-emerald-300 dark:text-zinc-950"
+          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/[0.04] dark:hover:text-white"
       }`}
       type="button"
       onClick={onClick}
@@ -885,11 +782,161 @@ function PaymentModeButton({ active, label, onClick }: { active: boolean; label:
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: string }) {
+function CompactSourceChainSelect({
+  balance,
+  isLoading,
+  selectedChainId,
+  sourceChains,
+  onSourceChainChange
+}: {
+  balance: string;
+  isLoading: boolean;
+  selectedChainId?: string;
+  sourceChains: UnifiedBalanceChainOption[];
+  onSourceChainChange: (chainId: string) => void;
+}) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
+    <label className="block rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
+      <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">Source chain</span>
+      <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+        <select
+          className="min-h-11 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-950 outline-none transition focus:border-emerald-500 dark:border-white/10 dark:bg-zinc-950 dark:text-white"
+          disabled={sourceChains.length === 0 || isLoading}
+          value={selectedChainId ?? ""}
+          onChange={(event) => onSourceChainChange(event.target.value)}
+        >
+          {sourceChains.length === 0 ? <option value="">No supported chains</option> : null}
+          {sourceChains.map((chain) => (
+            <option key={chain.id} value={chain.id}>
+              {chain.title}
+            </option>
+          ))}
+        </select>
+        <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Balance: {formatDisplayUsdc(balance)} USDC</span>
+      </div>
+    </label>
+  );
+}
+
+function PaymentSummary({
+  available,
+  fee,
+  hasSufficientBalance,
+  price,
+  productName
+}: {
+  available: string;
+  fee: string;
+  hasSufficientBalance: boolean;
+  price: string;
+  productName: string;
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <dl className="space-y-3 text-sm">
+        <SummaryRow label="Product" value={productName} />
+        <SummaryRow label="Price" value={`${price} USDC`} />
+        <SummaryRow label="Available" value={`${formatDisplayUsdc(available)} USDC`} />
+        <SummaryRow label="Network fee" value={fee} />
+        <SummaryRow emphasized label="Total" value={`${price} USDC`} />
+      </dl>
+      {!hasSufficientBalance ? (
+        <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100">
+          You need a little more USDC to continue.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function SummaryRow({ emphasized = false, label, value }: { emphasized?: boolean; label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className={emphasized ? "font-semibold text-zinc-950 dark:text-white" : "text-zinc-500 dark:text-zinc-400"}>{label}</dt>
+      <dd className={`text-right font-semibold ${emphasized ? "text-emerald-700 dark:text-emerald-200" : "text-zinc-950 dark:text-white"}`}>{value}</dd>
+    </div>
+  );
+}
+
+function UnifiedBalanceGuide() {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
+      <h2 className="text-base font-bold text-zinc-950 dark:text-white">How Unified Balance works</h2>
+      <ol className="mt-4 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
+        <GuideStep number="1" text="Deposit USDC from a supported chain." />
+        <GuideStep number="2" text="Wait for your Unified Balance to update." />
+        <GuideStep number="3" text="Pay for the voucher." />
+        <GuideStep number="4" text="Reveal your voucher in Orders." />
+      </ol>
+    </section>
+  );
+}
+
+function GuideStep({ number, text }: { number: string; text: string }) {
+  return (
+    <li className="flex gap-3">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-50 text-xs font-black text-emerald-700 dark:bg-emerald-300/10 dark:text-emerald-200">
+        {number}
+      </span>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+function NeedHelpPanel({
+  canCheckVoucher,
+  isVoucherReady,
+  orderHref,
+  onRetry
+}: {
+  canCheckVoucher: boolean;
+  isVoucherReady: boolean;
+  orderHref: string;
+  onRetry: () => void;
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/80">
+      {isVoucherReady ? (
+        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900 dark:border-emerald-300/25 dark:bg-emerald-300/10 dark:text-emerald-100">
+          Your voucher is ready.
+        </div>
+      ) : (
+        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+          Your payment is being processed. This usually takes less than a minute after payment confirmation.
+        </p>
+      )}
+      <p className="text-sm font-semibold text-zinc-950 dark:text-white">Need help?</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <Link className="flex min-h-11 items-center justify-center rounded-md border border-zinc-200 px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/[0.04]" href="/orders">
+          View orders
+        </Link>
+        <Link
+          className={`flex min-h-11 items-center justify-center rounded-md border px-3 text-sm font-semibold ${
+            canCheckVoucher
+              ? "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/[0.04]"
+              : "pointer-events-none border-zinc-100 text-zinc-400 dark:border-white/5 dark:text-zinc-600"
+          }`}
+          href={orderHref}
+        >
+          Check voucher
+        </Link>
+        <button
+          className="min-h-11 rounded-md border border-zinc-200 px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/[0.04]"
+          type="button"
+          onClick={onRetry}
+        >
+          Retry payment
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ProductSummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-zinc-50 p-3 dark:bg-white/[0.04]">
       <p className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className="mt-2 truncate text-sm font-black text-zinc-950 dark:text-white">{value}</p>
+      <p className="mt-1 text-sm font-bold text-zinc-950 dark:text-white">{value}</p>
     </div>
   );
 }
@@ -931,134 +978,44 @@ function getUnifiedPrimaryButtonLabel({
   return "Pay with Unified Balance";
 }
 
+function formatEstimatedFee(totalFees: string | undefined, hasSufficientBalance: boolean) {
+  if (!hasSufficientBalance) {
+    return "Estimated after balance is ready";
+  }
+
+  return totalFees ? `${formatDisplayUsdc(totalFees)} USDC` : "Estimated after balance is ready";
+}
+
+function formatDisplayUsdc(value: string) {
+  return Number(value || "0").toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Number(value) > 0 ? 2 : 0
+  });
+}
+
 function getBusyButtonLabel(status: UnifiedCheckoutStatus) {
   if (status === "waiting wallet confirmation") {
     return "Waiting for wallet";
   }
   if (status === "verifying payment" || status === "spend submitted") {
-    return "Verifying payment";
+    return "Confirming payment";
   }
   if (status === "payment confirmed" || status === "preparing voucher") {
     return "Preparing voucher";
   }
   if (status === "waiting receiver payment") {
-    return "Payment verification pending";
+    return "Confirming payment";
   }
   if (status === "payment attached" || status === "settlement submitted") {
-    return "Creating your order";
+    return "Preparing voucher";
   }
 
   return "Processing";
 }
 
-function getUnifiedCheckoutStatusLabel(status: UnifiedCheckoutStatus) {
-  const labels: Record<UnifiedCheckoutStatus, string> = {
-    failed: "Failed",
-    idle: "Ready",
-    "estimating fees": "Estimating fees",
-    "payment attached": "Payment confirmed",
-    "payment confirmed": "Payment confirmed",
-    "preparing intent": "Preparing checkout",
-    "preparing voucher": "Preparing voucher",
-    settled: "Payment confirmed",
-    "settlement submitted": "Preparing voucher",
-    "spend submitted": "Payment sent",
-    "verifying payment": "Verifying payment",
-    "voucher ready": "Voucher ready",
-    "waiting receiver payment": "Payment verification pending",
-    "waiting wallet confirmation": "Waiting for wallet"
-  };
-
-  return labels[status];
-}
-
 function getInitialSelectedChainIds(chains: UnifiedBalanceChainOption[]) {
-  return chains[0] ? [chains[0].id] : [];
-}
-
-function getUnifiedBalanceStatusLabel(status: UnifiedBalanceStatus) {
-  const labels = {
-    error: "Error",
-    insufficient: "Deposit needed",
-    loading: "Loading",
-    not_connected: "Connect wallet",
-    ready: "Ready",
-    unavailable: "Unavailable"
-  };
-
-  return labels[status];
-}
-
-function getUnifiedBalanceStatus({
-  balanceError,
-  hasSufficientBalance,
-  isConnected,
-  isLoading,
-  supportedChains
-}: {
-  balanceError: boolean;
-  hasSufficientBalance: boolean;
-  isConnected: boolean;
-  isLoading: boolean;
-  supportedChains: UnifiedBalanceChainOption[];
-}): UnifiedBalanceStatus {
-  if (!isConnected) {
-    return "not_connected";
-  }
-  if (supportedChains.length === 0) {
-    return "unavailable";
-  }
-  if (isLoading) {
-    return "loading";
-  }
-  if (balanceError) {
-    return "error";
-  }
-  if (!hasSufficientBalance) {
-    return "insufficient";
-  }
-
-  return "ready";
-}
-
-function getFeeEstimateMessage({
-  canEstimateFees,
-  feeError,
-  hasSufficientBalance,
-  isConnected,
-  selectedChainIds
-}: {
-  canEstimateFees: boolean;
-  feeError?: string;
-  hasSufficientBalance: boolean;
-  isConnected: boolean;
-  selectedChainIds: string[];
-}) {
-  if (feeError) {
-    return feeError;
-  }
-  if (!isConnected) {
-    return "Connect wallet to estimate Unified Balance fees.";
-  }
-  if (selectedChainIds.length === 0) {
-    return "Select at least one source blockchain.";
-  }
-  if (!hasSufficientBalance) {
-    return "Insufficient Unified Balance for this checkout amount.";
-  }
-  if (!canEstimateFees) {
-    return "Fee estimate is waiting for balance data.";
-  }
-
-  return undefined;
-}
-
-function getCurrentWalletChainLabel({ chainId, sourceChain }: { chainId?: number; sourceChain?: UnifiedBalanceChainOption }) {
-  if (!chainId) {
-    return "Not connected";
-  }
-
-  return sourceChain ? `${sourceChain.title} (${chainId})` : `Unsupported chain (${chainId})`;
+  const preferred = chains.find((chain) => /arbitrum/i.test(chain.title) && /sepolia/i.test(chain.title));
+  return preferred ? [preferred.id] : chains[0] ? [chains[0].id] : [];
 }
 
 function getPendingDepositBalanceStatus({
