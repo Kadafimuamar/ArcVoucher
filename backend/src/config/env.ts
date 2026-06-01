@@ -10,6 +10,8 @@ const DEFAULT_NATIVE_USDC_ADDRESS = "0xfffffffffffffffffffffffffffffffffffffffe"
 export type BackendConfig = {
   arcRpcUrl: string;
   contractAddress: Address;
+  corsAllowedOrigins: string[];
+  frontendOrigin: string;
   fulfillerPrivateKey: Hex;
   gatewayAddress: Address;
   intentReceiverAddress: Address;
@@ -27,6 +29,8 @@ export function loadConfig(): BackendConfig {
   return {
     arcRpcUrl: process.env.ARC_TESTNET_RPC_URL ?? DEFAULT_RPC_URL,
     contractAddress: (process.env.ARC_VOUCHER_STORE_ADDRESS ?? DEFAULT_STORE_ADDRESS) as Address,
+    corsAllowedOrigins: parseOrigins(process.env.CORS_ALLOWED_ORIGINS),
+    frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://127.0.0.1:3000",
     fulfillerPrivateKey: normalizePrivateKey(fulfillerPrivateKey),
     gatewayAddress: (process.env.ARC_GATEWAY_ADDRESS ?? DEFAULT_GATEWAY_ADDRESS) as Address,
     intentReceiverAddress: (process.env.ARC_VOUCHER_INTENT_PAYMENT_RECEIVER_ADDRESS ?? DEFAULT_INTENT_RECEIVER_ADDRESS) as Address,
@@ -37,4 +41,12 @@ export function loadConfig(): BackendConfig {
 
 function normalizePrivateKey(value: string): Hex {
   return (value.startsWith("0x") ? value : `0x${value}`) as Hex;
+}
+
+function parseOrigins(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value.split(",").map((origin) => origin.trim()).filter(Boolean);
 }

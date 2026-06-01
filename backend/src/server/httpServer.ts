@@ -14,7 +14,12 @@ import { getIntentVoucherId } from "../services/fulfillment.js";
 import { getUnifiedOrderHistory } from "../services/orderHistory.js";
 import { voucherStore } from "../vouchers/voucherStore.js";
 
-const allowedOrigins = new Set(["http://localhost:3000", "http://127.0.0.1:3000"]);
+const allowedOrigins = new Set([
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  config.frontendOrigin,
+  ...config.corsAllowedOrigins
+]);
 
 export function startHttpServer(): void {
   const server = createServer(async (request, response) => {
@@ -236,7 +241,7 @@ function sendJson(response: ServerResponse, status: number, body: unknown, origi
 }
 
 function corsHeaders(origin?: string) {
-  const allowOrigin = origin && allowedOrigins.has(origin) ? origin : "http://127.0.0.1:3000";
+  const allowOrigin = origin && allowedOrigins.has(origin) ? origin : config.frontendOrigin;
 
   return {
     "access-control-allow-headers": "content-type",
