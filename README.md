@@ -1,231 +1,314 @@
 # ArcVoucher
 
-ArcVoucher is a stablecoin-native global gift card marketplace built on Arc Testnet.
+Buy digital gift cards using USDC on Arc Testnet.
 
-Users can purchase digital vouchers such as:
+ArcVoucher is a public demo marketplace that showcases how Arc Unified Balance can be used for real-world digital purchases. Users can purchase gift cards using either direct Arc USDC payments or Arc Unified Balance sourced from multiple supported chains.
 
-* Steam
-* Epic Games
-* Amazon
-* Google Play
-* Apple
-* Netflix
-* Spotify
+---
 
-using USDC through Arc App Kit.
+## Why ArcVoucher?
+
+Most blockchain payments stop at transferring tokens.
+
+ArcVoucher demonstrates a complete purchase flow:
+
+USDC → Payment → Order → Voucher Delivery
+
+Using Arc Unified Balance, users can fund a single balance from supported chains and spend from that balance without managing separate wallets for every network.
+
+---
+
+## Features
+
+### Direct Arc Payment
+
+- Pay directly with USDC on Arc Testnet
+- Instant order creation
+- Voucher delivery after payment confirmation
+
+### Arc Unified Balance
+
+- Deposit USDC from supported chains
+- Spend from a unified balance
+- Cross-chain user experience
+- Wallet-linked voucher access
+
+### Voucher Marketplace
+
+- Steam Gift Cards
+- Google Play Gift Cards
+- Demo digital products
+- Extensible catalog architecture
+
+### Order History
+
+- Direct Arc purchases
+- Unified Balance purchases
+- Unified order tracking
+- Voucher retrieval
+
+---
+
+## Supported Payment Methods
+
+### Direct Arc USDC
+
+User pays directly on Arc Testnet.
+
+Flow:
+
+Wallet
+→ Arc Testnet
+→ ArcVoucher
+→ Voucher
+
+---
+
+### Arc Unified Balance
+
+User deposits USDC into Unified Balance and spends from a single balance.
+
+Flow:
+
+Source Chain
+→ Unified Balance
+→ Arc Payment
+→ Voucher
+
+---
+
+## Supported Chains
+
+Arc Unified Balance currently supports:
+
+- Arc Testnet
+- Arbitrum Sepolia
+- Avalanche Fuji
+- Base Sepolia
+- Ethereum Sepolia
+- HyperEVM Testnet
+- Optimism Sepolia
+- Polygon Amoy
+- Sei Testnet
+- Sonic Testnet
+- Unichain Sepolia
+- World Chain Sepolia
+
+Availability depends on Arc Unified Balance support.
+
+---
+
+# User Workflow
+
+## Option 1 — Direct Arc Payment
+
+### Step 1
+
+Connect your wallet.
+
+### Step 2
+
+Open Marketplace.
+
+### Step 3
+
+Select a gift card.
+
+Example:
+
+- Steam Gift Card $10
+- Google Play Gift Card $10
+
+### Step 4
+
+Choose:
+
+Direct Arc Payment
+
+### Step 5
+
+Confirm payment.
+
+### Step 6
+
+Wait for payment confirmation.
+
+### Step 7
+
+Open Orders.
+
+### Step 8
+
+Reveal your voucher code.
+
+---
+
+## Option 2 — Arc Unified Balance
+
+### Step 1
+
+Connect your wallet.
+
+### Step 2
+
+Open Marketplace.
+
+### Step 3
+
+Select a gift card.
+
+### Step 4
+
+Choose:
+
+Unified Balance
+
+### Step 5
+
+Select a source chain.
+
+Example:
+
+- Arbitrum Sepolia
+- Base Sepolia
+- Ethereum Sepolia
+
+### Step 6
+
+Deposit USDC into Unified Balance.
+
+### Step 7
+
+Wait for Unified Balance to update.
+
+Usually a few minutes.
+
+### Step 8
+
+Pay with Unified Balance.
+
+### Step 9
+
+Wait for payment verification.
+
+### Step 10
+
+Open Orders.
+
+### Step 11
+
+Reveal your voucher code.
+
+---
+
+# Voucher Security
+
+Voucher codes are linked to the purchasing wallet.
+
+Benefits:
+
+- Wallet-based ownership
+- Controlled voucher access
+- Purchase verification
+- Order tracking
+
+---
+
+# Architecture
+
+## Frontend
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+
+## Backend
+
+- Node.js
+- Express
+- Event-driven payment processing
+
+## Smart Contracts
+
+### ArcVoucherStore
+
+Handles:
+
+- Product catalog
+- Inventory
+- Direct Arc purchases
+
+### ArcVoucherIntentPaymentReceiver
+
+Supports Unified Balance purchase workflows.
+
+---
+
+# Contracts
+
+## ArcVoucherStore
+
+```txt
+0x7fe4C334670BE2fe5Fe840809E45ddB1b23b436c
+```
+
+## ArcVoucherIntentPaymentReceiver
+
+```txt
+0xcE74549774a6fe45A2a6A6D04daBaeF29dFe1971
+```
+
+---
+
+# Demo Status
+
+Current status:
+
+✅ Direct Arc Payment
+
+✅ Arc Unified Balance Deposit
+
+✅ Arc Unified Balance Spend
+
+✅ Voucher Delivery
+
+✅ Unified Order History
+
+✅ Wallet-Based Voucher Reveal
+
+✅ Public Testnet Demo
+
+---
+
+# Local Development
+
+## Frontend
+
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+## Backend
+
+```bash
+cd backend
+
+npm install
+
+npm run dev
+```
 
 ---
 
 # Vision
 
-ArcVoucher enables users to spend USDC from multiple blockchains and purchase digital gift cards through a unified checkout experience powered by Arc.
+ArcVoucher demonstrates how Arc Unified Balance can power real digital commerce.
 
-The project is designed around:
+Instead of simply moving tokens between wallets, users can spend USDC from a unified balance to purchase digital goods across supported ecosystems.
 
-* Arc Testnet
-* Arc App Kit
-* Unified Balance
-* Bridge
-* Swap
-* Send
-* Stablecoin-native payments
-
----
-
-# Core Features
-
-## Marketplace
-
-* Browse gift cards
-* View stock
-* View price in USDC
-* Purchase gift cards
-
-## Payments
-
-* USDC on Arc
-* Cross-chain USDC payments
-* Unified Balance checkout
-* Bridge USDC to Arc
-* Swap to USDC
-
-## Onchain State
-
-Store on-chain:
-
-* Products
-* Stock
-* Orders
-* Order status
-* Fulfillment proof
-
-Do NOT store on-chain:
-
-* Voucher code plaintext
-* Distributor secrets
-* API keys
-* User private data
-
-## Voucher Fulfillment
-
-Backend generates or retrieves voucher codes.
-
-Only voucher hashes are stored on-chain.
-
----
-
-# Tech Stack
-
-## Blockchain
-
-* Arc Testnet
-* Solidity
-* Foundry
-* Viem
-
-## Frontend
-
-* Next.js
-* TypeScript
-* Tailwind
-* Wagmi
-* Viem
-* Arc App Kit
-
-## Backend
-
-* Node.js
-* TypeScript
-
----
-
-# Monorepo Structure
-
-```text
-arcvoucher/
-  backend/      Node.js TypeScript services for event listening and voucher fulfillment
-  contracts/    Foundry workspace for Arc Testnet smart contracts
-  docs/         Architecture, workflow, implementation, and App Kit planning docs
-  frontend/     Next.js marketplace application
-```
-
----
-
-# Setup
-
-## Prerequisites
-
-* Node.js 20+
-* pnpm 9+
-* Foundry
-
-## Install Dependencies
-
-```bash
-pnpm install
-```
-
-## Configure Environment
-
-Copy the example environment files before local development:
-
-```bash
-cp frontend/.env.example frontend/.env.local
-cp backend/.env.example backend/.env
-```
-
-Arc Testnet defaults:
-
-* RPC: `https://rpc.testnet.arc.network`
-* Chain ID: `5042002`
-* Explorer: `https://testnet.arcscan.app`
-* Payment asset: USDC
-
-Contract and USDC addresses are intentionally left blank until deployment details are finalized.
-
-## Common Commands
-
-```bash
-pnpm dev
-pnpm build
-pnpm lint
-pnpm test
-pnpm contracts:build
-pnpm contracts:test
-pnpm frontend:dev
-pnpm backend:dev
-```
-
-## Contracts
-
-The Foundry workspace lives in `contracts/`.
-
-```bash
-cd contracts
-forge build
-forge test
-```
-
-## Frontend
-
-The Next.js app lives in `frontend/` and is reserved for Arc App Kit, Wagmi, Viem, Tailwind, and marketplace UI work.
-
-```bash
-pnpm frontend:dev
-```
-
-## Backend
-
-The Node.js TypeScript backend lives in `backend/` and is reserved for event listening, mock voucher generation, encryption, fulfillment, and refund workflows.
-
-```bash
-pnpm backend:dev
-```
-
----
-
-# Arc Documentation Source of Truth
-
-All implementations MUST follow Arc documentation.
-
-Priority:
-
-1. App Kit
-2. Send
-3. Bridge
-4. Swap
-5. Unified Balance
-6. SDK Reference
-
-Reference Docs:
-
-* App Kit
-* Installation
-* Adapter Setup
-* Server Wallet Setup
-* Send
-* Bridge
-* Swap
-* Unified Balance
-* Fee Estimation
-* Forwarding Service
-* Delegate Management
-* Supported Blockchains
-* SDK Reference
-
----
-
-# Development Principles
-
-1. App Kit first.
-2. USDC first.
-3. Arc first.
-4. Cross-chain by default.
-5. Store public state on-chain.
-6. Store secrets off-chain.
-7. Unified Balance should be integrated from the beginning.
-8. Follow Arc documentation before implementing any feature.
-
-# Links or Reference
-
-1. https://docs.arc.io
+This project serves as a public testnet showcase of practical Unified Balance usage within the Arc ecosystem.
