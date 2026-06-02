@@ -10,7 +10,14 @@ import {
   repairIntentVoucher,
   syncIntentFromChain
 } from "../services/intentLifecycle.js";
-import { getIntentVoucherId } from "../services/fulfillment.js";
+import {
+  DirectVoucherRepairError,
+  directOrderHasVoucherHash,
+  getDirectOrderStatusName,
+  getIntentVoucherId,
+  readDirectStoreOrder,
+  repairDirectVoucherFromChain
+} from "../services/fulfillment.js";
 import { getUnifiedOrderHistory } from "../services/orderHistory.js";
 import { voucherStore } from "../vouchers/voucherStore.js";
 
@@ -199,28 +206,60 @@ export function startHttpServer(): void {
       return;
     }
 
+    const debugVoucherMatch = url.pathname.match(/^\/debug\/voucher\/(\d+)$/);
+    if (request.method === "GET" && debugVoucherMatch) {
+      try {
+        const orderId = BigInt(debugVoucherMatch[1]);
+        const orderIdKey = orderId.toString();
+        const buyer = url.searchParams.get("buyer");
+        const requestBuyer = buyer ? normalizeAddress(buyer) : null;
+        const order = await readDirectStoreOrder(orderId);
+        const isExistingOrder = order.id !== BigInt(0);
+
+        sendJson(response, 200, {
+          buyerMatches: Boolean(requestBuyer && order.buyer.toLowerCase() === requestBuyer.toLowerCase()),
+          existsInVoucherStore: voucherStore.has(orderIdKey),
+          onChainBuyer: isExistingOrder ? order.buyer : null,
+          onChainStatus: isExistingOrder ? getDirectOrderStatusName(order.status) : "Missing",
+          orderIdKeyUsed: orderIdKey,
+          requestBuyer,
+          storagePath: voucherStore.getStoragePath(),
+          voucherHashExists: isExistingOrder ? directOrderHasVoucherHash(order) : false
+        }, request.headers.origin);
+      } catch (error) {
+        sendJson(response, 400, { error: getErrorMessage(error) }, request.headers.origin);
+      }
+      return;
+    }
+
     const voucherMatch = url.pathname.match(/^\/voucher\/(\d+)$/);
     if (request.method === "GET" && voucherMatch) {
       const orderId = voucherMatch[1];
       const buyer = url.searchParams.get("buyer");
-      const voucher = voucherStore.get(orderId);
 
       if (!buyer) {
         sendJson(response, 400, { error: "buyer query parameter is required" }, request.headers.origin);
         return;
       }
 
-      if (!voucher) {
-        sendJson(response, 404, { error: "Voucher not found" }, request.headers.origin);
-        return;
-      }
+      try {
+        const normalizedBuyer = normalizeAddress(buyer);
+        const voucher = voucherStore.get(BigInt(orderId).toString()) ?? await repairDirectVoucherFromChain(orderId, normalizedBuyer);
 
-      if (buyer.toLowerCase() !== voucher.buyer.toLowerCase()) {
-        sendJson(response, 403, { error: "Forbidden" }, request.headers.origin);
-        return;
-      }
+        if (normalizedBuyer.toLowerCase() !== voucher.buyer.toLowerCase()) {
+          sendJson(response, 403, { error: "Forbidden" }, request.headers.origin);
+          return;
+        }
 
-      sendJson(response, 200, voucher, request.headers.origin);
+        sendJson(response, 200, voucher, request.headers.origin);
+      } catch (error) {
+        if (error instanceof DirectVoucherRepairError) {
+          sendJson(response, error.statusCode, { error: error.message }, request.headers.origin);
+          return;
+        }
+
+        sendJson(response, 400, { error: getErrorMessage(error) }, request.headers.origin);
+      }
       return;
     }
 
