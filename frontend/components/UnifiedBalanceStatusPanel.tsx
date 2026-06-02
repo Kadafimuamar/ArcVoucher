@@ -72,10 +72,15 @@ export function UnifiedBalanceStatusPanel({
             <p className="mt-2 text-sm opacity-80">Your voucher is being prepared. This usually takes less than a minute.</p>
           ) : null}
           {sessionRestored ? <p className="mt-2 text-sm font-semibold">Checkout resumed.</p> : null}
+          {!isFailed && errorMessage ? (
+            <p className="mt-3 rounded-md bg-amber-100 p-3 text-sm text-amber-950 dark:bg-amber-300/10 dark:text-amber-100">
+              {errorMessage}
+            </p>
+          ) : null}
           {isFailed && errorMessage ? <p className="mt-3 rounded-md bg-white/60 p-3 text-sm dark:bg-black/20">{errorMessage}</p> : null}
           {isFailed && intent?.spendTxHash ? (
             <p className="mt-3 rounded-md bg-amber-100 p-3 text-sm text-amber-950 dark:bg-amber-300/10 dark:text-amber-100">
-              Payment may already be sent. Check your orders before retrying.
+              Payment may already be sent. Retry verification before starting another payment.
             </p>
           ) : null}
         </div>

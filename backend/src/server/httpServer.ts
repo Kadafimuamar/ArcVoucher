@@ -4,10 +4,12 @@ import { intentStore } from "../intents/intentStore.js";
 import {
   confirmSpendForIntent,
   createIntent,
+  getIntentSpendDebug,
   normalizeAddress,
   normalizeBytes32,
   normalizePositiveBigInt,
   repairIntentVoucher,
+  retryConfirmSpendForIntent,
   syncIntentFromChain
 } from "../services/intentLifecycle.js";
 import {
@@ -94,6 +96,33 @@ export function startHttpServer(): void {
           voucherStatus: result.voucher?.status ?? null,
           voucherTxHash: result.voucher?.txHash ?? null
         }, request.headers.origin);
+      } catch (error) {
+        sendJson(response, 400, { error: getErrorMessage(error) }, request.headers.origin);
+      }
+      return;
+    }
+
+    const intentRetryConfirmSpendMatch = url.pathname.match(/^\/intents\/(\d+)\/retry-confirm-spend$/);
+    if (request.method === "POST" && intentRetryConfirmSpendMatch) {
+      try {
+        const body = await readJsonBody(request);
+        const result = await retryConfirmSpendForIntent(intentRetryConfirmSpendMatch[1], parseRetryConfirmSpendBody(body));
+        sendJson(response, 200, {
+          intent: result.intent,
+          voucherStatus: result.voucher?.status ?? null,
+          voucherTxHash: result.voucher?.txHash ?? null
+        }, request.headers.origin);
+      } catch (error) {
+        sendJson(response, 400, { error: getErrorMessage(error) }, request.headers.origin);
+      }
+      return;
+    }
+
+    const intentDebugSpendMatch = url.pathname.match(/^\/intents\/(\d+)\/debug-spend$/);
+    if (request.method === "GET" && intentDebugSpendMatch) {
+      try {
+        const debug = await getIntentSpendDebug(intentDebugSpendMatch[1]);
+        sendJson(response, 200, debug, request.headers.origin);
       } catch (error) {
         sendJson(response, 400, { error: getErrorMessage(error) }, request.headers.origin);
       }
@@ -330,6 +359,18 @@ function parseConfirmSpendBody(body: unknown) {
     buyer: requireString(record.buyer, "buyer"),
     expectedAmount: requireStringOrNumber(record.expectedAmount, "expectedAmount"),
     recipient: requireString(record.recipient, "recipient"),
+    spendTxHash: requireString(record.spendTxHash, "spendTxHash")
+  };
+}
+
+function parseRetryConfirmSpendBody(body: unknown) {
+  if (!body || typeof body !== "object") {
+    throw new Error("Request body must be a JSON object");
+  }
+
+  const record = body as Record<string, unknown>;
+
+  return {
     spendTxHash: requireString(record.spendTxHash, "spendTxHash")
   };
 }

@@ -134,7 +134,7 @@ async function getUnifiedBalanceOrders(buyer: Address): Promise<UnifiedOrderHist
 
   return Promise.all(
     intents
-      .filter((intent) => intent.status !== "created")
+      .filter((intent) => intent.status !== "created" || Boolean(intent.spendTxHash))
       .map(async (intent): Promise<UnifiedOrderHistoryItem> => {
         const voucherId = getIntentVoucherId(intent.intentId);
         const voucher = voucherStore.get(voucherId);

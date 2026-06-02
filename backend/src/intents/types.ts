@@ -18,6 +18,8 @@ export type StoredIntent = {
   expiresAt: string;
   expectedAmount: string;
   intentId: string;
+  lastConfirmationAttemptAt?: string | null;
+  lastConfirmationError?: string | null;
   paidAt?: string | null;
   productId: string;
   rawPaymentId?: string | null;

@@ -22,6 +22,8 @@ export type StoredIntent = {
   expectedAmount: string;
   expiresAt: string;
   intentId: string;
+  lastConfirmationAttemptAt?: string | null;
+  lastConfirmationError?: string | null;
   paidAt?: string | null;
   productId: string;
   rawPaymentId?: string | null;
@@ -49,6 +51,20 @@ export type IntentStatusResponse = {
   voucherError?: string | null;
   voucherStatus?: "detected" | "fulfilling" | "fulfilled" | "failed" | null;
   voucherTxHash?: Hex | null;
+};
+
+export type IntentSpendDebugResponse = {
+  buyer: Address;
+  expectedAmount: string;
+  gatewayExpected: Address;
+  intentStatus: StoredIntentStatus;
+  lastConfirmationError: string | null;
+  recipientExpected: Address;
+  spendTxHash: Hex | null;
+  spendTxHashStored: boolean;
+  verificationDetails: unknown;
+  verificationErrors: string[];
+  voucherStatus: "detected" | "fulfilling" | "fulfilled" | "failed" | null;
 };
 
 export async function createBackendIntent({
@@ -102,6 +118,32 @@ export async function confirmBackendIntentSpend({
       buyer,
       expectedAmount,
       recipient,
+      spendTxHash
+    }),
+    cache: "no-store",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json"
+    },
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error(await getApiError(response));
+  }
+
+  return (await response.json()) as IntentStatusResponse;
+}
+
+export async function retryBackendIntentSpend({
+  intentId,
+  spendTxHash
+}: {
+  intentId: string;
+  spendTxHash: Hex;
+}): Promise<IntentStatusResponse> {
+  const response = await fetch(new URL(`/intents/${intentId}/retry-confirm-spend`, arcVoucherBackendUrl), {
+    body: JSON.stringify({
       spendTxHash
     }),
     cache: "no-store",

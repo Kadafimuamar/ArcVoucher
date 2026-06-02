@@ -44,7 +44,7 @@ import {
 } from "@/lib/appkit/unifiedBalance";
 import { arcVoucherIntentPaymentReceiverAddress } from "@/lib/contracts/arcVoucherIntentPaymentReceiver";
 import { useArcVoucherProduct } from "@/lib/contracts/productReads";
-import { confirmBackendIntentSpend, createBackendIntent, useIntentStatus, type StoredIntent } from "@/lib/intents";
+import { confirmBackendIntentSpend, createBackendIntent, retryBackendIntentSpend, useIntentStatus, type StoredIntent } from "@/lib/intents";
 
 type PaymentMode = "direct" | "unified";
 type PreparedReference = {
@@ -59,6 +59,7 @@ type UnifiedCheckoutStatus =
   | "waiting wallet confirmation"
   | "spend submitted"
   | "verifying payment"
+  | "verification pending"
   | "payment confirmed"
   | "preparing voucher"
   | "voucher ready"
@@ -67,6 +68,9 @@ type UnifiedCheckoutStatus =
   | "settlement submitted"
   | "settled"
   | "failed";
+
+const spendVerificationPendingMessage =
+  "Payment was sent but verification is still pending. Please refresh or retry verification.";
 
 export function CheckoutView({ productId }: { productId: number }) {
   const { address, chainId, isConnected } = useAccount();
@@ -158,6 +162,8 @@ export function CheckoutView({ productId }: { productId: number }) {
   const isUnifiedCheckoutBusy = isBusyUnifiedStatus(displayedUnifiedStatus);
   const isVoucherReady = intentStatusQuery.data?.voucherStatus === "fulfilled" || currentIntent?.status === "voucher_fulfilled";
   const isUnifiedFailed = displayedUnifiedStatus === "failed";
+  const retrySpendTxHash = (spendEvidence?.txHash ?? currentIntent?.spendTxHash) as Hex | undefined;
+  const canRetrySpendVerification = Boolean(currentIntent?.intentId && retrySpendTxHash && !isVoucherReady);
   const uiState = getUnifiedBalanceUiState({
     errorMessage: unifiedCheckoutError ?? intentStatusQuery.error?.message,
     hasSufficientBalance: allocationState.hasSufficientBalance,
@@ -175,7 +181,9 @@ export function CheckoutView({ productId }: { productId: number }) {
       }
 
       if (!evidence.txHash) {
-        throw new Error("Unified Balance spend did not return a transaction hash to verify.");
+        setUnifiedCheckoutError(spendVerificationPendingMessage);
+        setUnifiedCheckoutStatus("verification pending");
+        return;
       }
 
       if (confirmingSpendHashRef.current === evidence.txHash) {
@@ -197,8 +205,9 @@ export function CheckoutView({ productId }: { productId: number }) {
         setUnifiedCheckoutStatus(result.voucherStatus === "fulfilled" || result.intent.status === "voucher_fulfilled" ? "voucher ready" : "preparing voucher");
         void intentStatusQuery.refetch();
       } catch (error) {
-        setUnifiedCheckoutError(error instanceof Error ? error.message : String(error));
-        setUnifiedCheckoutStatus("failed");
+        console.error("[checkout] Unified Balance verification failed", error);
+        setUnifiedCheckoutError(spendVerificationPendingMessage);
+        setUnifiedCheckoutStatus("verification pending");
       } finally {
         confirmingSpendHashRef.current = undefined;
       }
@@ -302,11 +311,11 @@ export function CheckoutView({ productId }: { productId: number }) {
       intentId: backendIntent?.intentId ?? currentIntent?.intentId,
       productId: product.id,
       referenceId: referenceId ?? preparedReference?.referenceId,
-      spendTxHash: spendEvidence?.txHash,
+      spendTxHash: spendEvidence?.txHash ?? currentIntent?.spendTxHash ?? undefined,
       transferId: spendEvidence?.transferId,
       updatedAt: currentStepStartedAt
     });
-  }, [address, backendIntent?.intentId, currentIntent?.intentId, currentStepStartedAt, paymentMode, pendingDeposit, preparedReference?.referenceId, product, referenceId, spendEvidence, uiState.currentStep]);
+  }, [address, backendIntent?.intentId, currentIntent?.intentId, currentIntent?.spendTxHash, currentStepStartedAt, paymentMode, pendingDeposit, preparedReference?.referenceId, product, referenceId, spendEvidence, uiState.currentStep]);
 
   useEffect(() => {
     if (previousUiStep !== uiState.currentStep) {
@@ -320,7 +329,15 @@ export function CheckoutView({ productId }: { productId: number }) {
   }, [previousUiStep, uiState.currentStep]);
 
   useEffect(() => {
-    if (!address || !product || !currentIntent || currentIntent.status !== "created" || !spendEvidence?.txHash) {
+    if (
+      !address ||
+      !product ||
+      !currentIntent ||
+      currentIntent.status !== "created" ||
+      !spendEvidence?.txHash ||
+      currentIntent.lastConfirmationError ||
+      unifiedCheckoutStatus === "verification pending"
+    ) {
       return;
     }
 
@@ -329,7 +346,7 @@ export function CheckoutView({ productId }: { productId: number }) {
     }, 0);
 
     return () => window.clearTimeout(confirmTimeout);
-  }, [address, confirmSpendWithBackend, currentIntent, product, spendEvidence]);
+  }, [address, confirmSpendWithBackend, currentIntent, product, spendEvidence, unifiedCheckoutStatus]);
 
   async function handleUnifiedBalanceCheckout() {
     if (!address || !product) {
@@ -456,8 +473,8 @@ export function CheckoutView({ productId }: { productId: number }) {
   }
 
   function handleRetryUnifiedBalance() {
-    if (currentIntent && spendEvidence?.txHash) {
-      void confirmSpendWithBackend(currentIntent, spendEvidence);
+    if (currentIntent && retrySpendTxHash) {
+      void retrySpendVerification(currentIntent, retrySpendTxHash);
       return;
     }
 
@@ -468,6 +485,26 @@ export function CheckoutView({ productId }: { productId: number }) {
 
     setUnifiedCheckoutError(undefined);
     setUnifiedCheckoutStatus("idle");
+  }
+
+  async function retrySpendVerification(intent: StoredIntent, spendTxHash: Hex) {
+    setUnifiedCheckoutError(undefined);
+    setUnifiedCheckoutStatus("verifying payment");
+
+    try {
+      const result = await retryBackendIntentSpend({
+        intentId: intent.intentId,
+        spendTxHash
+      });
+      setBackendIntent(result.intent);
+      setUnifiedCheckoutStatus(result.voucherStatus === "fulfilled" || result.intent.status === "voucher_fulfilled" ? "voucher ready" : "preparing voucher");
+      void intentStatusQuery.refetch();
+    } catch (error) {
+      console.error("[checkout] Unified Balance retry verification failed", error);
+      setUnifiedCheckoutError(spendVerificationPendingMessage);
+      setUnifiedCheckoutStatus("verification pending");
+      void intentStatusQuery.refetch();
+    }
   }
 
   function startPostDepositBalancePolling({
@@ -640,18 +677,24 @@ export function CheckoutView({ productId }: { productId: number }) {
               className="min-h-12 w-full rounded-md bg-zinc-950 px-5 text-sm font-black text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:bg-emerald-300 dark:text-zinc-950 dark:hover:bg-emerald-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
               disabled={
                 !isConnected ||
-                !allocationState.hasSufficientBalance ||
-                allocationState.allocations.length === 0 ||
+                (!canRetrySpendVerification && !allocationState.hasSufficientBalance) ||
+                (!canRetrySpendVerification && allocationState.allocations.length === 0) ||
                 feeEstimateQuery.isLoading ||
                 isUnifiedCheckoutBusy ||
                 isVoucherReady
               }
               type="button"
               onClick={() => {
+                if (canRetrySpendVerification && currentIntent && retrySpendTxHash) {
+                  void retrySpendVerification(currentIntent, retrySpendTxHash);
+                  return;
+                }
+
                 void handleUnifiedBalanceCheckout();
               }}
             >
               {getUnifiedPrimaryButtonLabel({
+                canRetryVerification: canRetrySpendVerification,
                 hasSufficientBalance: allocationState.hasSufficientBalance,
                 isBusy: isUnifiedCheckoutBusy,
                 isConnected,
@@ -756,7 +799,6 @@ function isBusyUnifiedStatus(status: UnifiedCheckoutStatus) {
     "preparing intent",
     "estimating fees",
     "waiting wallet confirmation",
-    "spend submitted",
     "verifying payment",
     "payment confirmed",
     "preparing voucher",
@@ -925,7 +967,7 @@ function NeedHelpPanel({
           type="button"
           onClick={onRetry}
         >
-          Retry payment
+          Retry verification
         </button>
       </div>
     </section>
@@ -942,6 +984,7 @@ function ProductSummary({ label, value }: { label: string; value: string }) {
 }
 
 function getUnifiedPrimaryButtonLabel({
+  canRetryVerification,
   hasSufficientBalance,
   isBusy,
   isConnected,
@@ -949,6 +992,7 @@ function getUnifiedPrimaryButtonLabel({
   isVoucherReady,
   status
 }: {
+  canRetryVerification: boolean;
   hasSufficientBalance: boolean;
   isBusy: boolean;
   isConnected: boolean;
@@ -962,6 +1006,9 @@ function getUnifiedPrimaryButtonLabel({
   if (!isConnected) {
     return "Connect wallet";
   }
+  if (canRetryVerification && !isBusy) {
+    return "Retry verification";
+  }
   if (!hasSufficientBalance) {
     return "Deposit USDC first";
   }
@@ -971,8 +1018,8 @@ function getUnifiedPrimaryButtonLabel({
   if (isBusy) {
     return getBusyButtonLabel(status);
   }
-  if (status === "failed") {
-    return "Retry Unified Balance";
+  if (status === "failed" || status === "verification pending") {
+    return "Retry verification";
   }
 
   return "Pay with Unified Balance";

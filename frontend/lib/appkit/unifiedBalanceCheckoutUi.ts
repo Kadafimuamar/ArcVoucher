@@ -58,7 +58,13 @@ export function getUnifiedBalanceUiState({
     return buildState("store_order", "Payment confirmed. Preparing your voucher.", "Usually less than a minute", false, "receiver");
   }
 
-  if (spendSubmitted || localStatus === "spend submitted" || localStatus === "verifying payment" || localStatus === "waiting receiver payment") {
+  if (
+    spendSubmitted ||
+    localStatus === "spend submitted" ||
+    localStatus === "verifying payment" ||
+    localStatus === "verification pending" ||
+    localStatus === "waiting receiver payment"
+  ) {
     return buildState("receiver", "Payment sent. Confirming payment...", "Usually less than a minute", false, "spend");
   }
 
