@@ -50,10 +50,15 @@ export function startHttpServer(): void {
         ok: true,
         service: "arcvoucher-backend",
         contract: config.contractAddress,
+        dataDir: config.dataDir,
         gateway: config.gatewayAddress,
+        intentStoragePath: intentStore.getStoragePath(),
+        intentStoreWritable: intentStore.isWritable(),
         intentReceiver: config.intentReceiverAddress,
         nativeUsdc: config.nativeUsdcAddress,
-        rpcUrl: config.arcRpcUrl
+        rpcUrl: config.arcRpcUrl,
+        voucherStoragePath: voucherStore.getStoragePath(),
+        voucherStoreWritable: voucherStore.isWritable()
       }, request.headers.origin);
       return;
     }

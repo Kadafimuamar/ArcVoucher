@@ -1,15 +1,18 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
+import { prepareStoragePath, resolveStoreStoragePath, type StorageDiagnostics } from "../storage/dataDirectory.js";
 import type { Hex } from "viem";
 import type { IntentStoreFile, StoredIntent, StoredRawPayment } from "./types.js";
 
-const storagePath = resolve(process.cwd(), "data", "intents.json");
+const storagePath = resolveStoreStoragePath("intent");
 
 export class IntentStore {
   private intents = new Map<string, StoredIntent>();
   private rawPayments = new Map<string, StoredRawPayment>();
+  private storageDiagnostics: StorageDiagnostics | null = null;
 
   async load(): Promise<void> {
+    this.storageDiagnostics = await prepareStoragePath("intentStore", storagePath);
     await mkdir(dirname(storagePath), { recursive: true });
 
     try {
@@ -49,6 +52,18 @@ export class IntentStore {
 
   getRawPayment(rawPaymentId: string): StoredRawPayment | undefined {
     return this.rawPayments.get(rawPaymentId);
+  }
+
+  getStoragePath(): string {
+    return storagePath;
+  }
+
+  isWritable(): boolean {
+    return Boolean(this.storageDiagnostics?.writable);
+  }
+
+  getStorageDiagnostics(): StorageDiagnostics | null {
+    return this.storageDiagnostics;
   }
 
   findCreatedIntentsByAmount(expectedAmount: string, now = new Date()): StoredIntent[] {

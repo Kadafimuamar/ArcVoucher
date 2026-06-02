@@ -44,6 +44,9 @@ FULFILLER_PRIVATE_KEY=
 PORT=4000
 FRONTEND_ORIGIN=https://your-vercel-project.vercel.app
 CORS_ALLOWED_ORIGINS=https://your-vercel-project.vercel.app
+DATA_DIR=/data
+INTENT_DATA_DIR=
+VOUCHER_DATA_DIR=
 ORDER_HISTORY_LOOKBACK_BLOCKS=250000
 ARC_VOUCHER_START_BLOCK=
 ARC_GATEWAY_ADDRESS=0x0022222abe238cc2c7bb1f21003f0a260052475b
@@ -53,6 +56,8 @@ ARC_NATIVE_USDC_ADDRESS=0xfffffffffffffffffffffffffffffffffffffffe
 `FULFILLER_PRIVATE_KEY` must be the deployer or owner wallet private key for the MVP. Do not commit it.
 
 `FRONTEND_ORIGIN` is the primary deployed frontend URL. `CORS_ALLOWED_ORIGINS` is a comma-separated allowlist for additional production, preview, or custom-domain origins.
+
+`DATA_DIR` is where the backend stores MVP JSON data for intents and vouchers. Set it to a persistent volume mount in production. `INTENT_DATA_DIR` and `VOUCHER_DATA_DIR` are optional legacy overrides used only when `DATA_DIR` is not set.
 
 ## Backend Health Check
 
@@ -69,10 +74,15 @@ Expected response shape:
   "ok": true,
   "service": "arcvoucher-backend",
   "contract": "0x7fe4C334670BE2fe5Fe840809E45ddB1b23b436c",
+  "dataDir": "/data",
   "gateway": "0x0022222abe238cc2c7bb1f21003f0a260052475b",
+  "intentStoragePath": "/data/intents.json",
+  "intentStoreWritable": true,
   "intentReceiver": "0xcE74549774a6fe45A2a6A6D04daBaeF29dFe1971",
   "nativeUsdc": "0xfffffffffffffffffffffffffffffffffffffffe",
-  "rpcUrl": "https://rpc.testnet.arc.network"
+  "rpcUrl": "https://rpc.testnet.arc.network",
+  "voucherStoragePath": "/data/vouchers.json",
+  "voucherStoreWritable": true
 }
 ```
 
@@ -87,21 +97,36 @@ curl https://your-arcvoucher-backend.example.com/health
 1. Create a Railway project from the repository.
 2. Set the service root directory to `backend`.
 3. Set environment variables from `backend/.env.production.example`.
-4. Set build command:
+4. Create a Railway persistent volume and mount it to:
+
+```txt
+/data
+```
+
+5. Set:
+
+```txt
+DATA_DIR=/data
+```
+
+6. Set build command:
 
 ```bash
 npm install && npm run build
 ```
 
-5. Set start command:
+7. Set start command:
 
 ```bash
 npm run start
 ```
 
-6. Deploy and open `/health`.
+8. Deploy and open `/health`.
+9. Confirm `dataDir` is `/data`, `intentStoreWritable` is `true`, and `voucherStoreWritable` is `true`.
 
 Railway usually provides `PORT`; keep `PORT=4000` only if manually configuring a fixed port.
+
+Without a Railway persistent volume or a database, `intents.json` and `vouchers.json` may be lost after redeploys, restarts, or container replacement. This can make paid Unified Balance intents look pending because the backend no longer has the original intent record.
 
 ## Deploy Backend To Render
 
@@ -190,5 +215,5 @@ Redeploy or restart the backend after changing CORS env vars.
 
 - Do not expose `FULFILLER_PRIVATE_KEY` in frontend env vars.
 - All frontend env vars that start with `NEXT_PUBLIC_` are visible in the browser.
-- Keep backend storage persistent if the platform supports it. The MVP stores intent and voucher data locally, so ephemeral filesystems may lose demo history after redeploys.
+- Keep backend storage persistent. The MVP stores intent and voucher data locally, so ephemeral filesystems may lose demo history and pending fulfillment records after redeploys.
 - For Vercel preview deployments, add each preview origin to `CORS_ALLOWED_ORIGINS` or use a stable custom domain for public testing.

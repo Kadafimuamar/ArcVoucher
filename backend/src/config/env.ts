@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { resolve } from "node:path";
 import type { Address, Hex } from "viem";
 
 const DEFAULT_RPC_URL = "https://rpc.testnet.arc.network";
@@ -11,6 +12,7 @@ export type BackendConfig = {
   arcRpcUrl: string;
   contractAddress: Address;
   corsAllowedOrigins: string[];
+  dataDir: string;
   frontendOrigin: string;
   fulfillerPrivateKey: Hex;
   gatewayAddress: Address;
@@ -30,6 +32,7 @@ export function loadConfig(): BackendConfig {
     arcRpcUrl: process.env.ARC_TESTNET_RPC_URL ?? DEFAULT_RPC_URL,
     contractAddress: (process.env.ARC_VOUCHER_STORE_ADDRESS ?? DEFAULT_STORE_ADDRESS) as Address,
     corsAllowedOrigins: parseOrigins(process.env.CORS_ALLOWED_ORIGINS),
+    dataDir: resolve(process.env.DATA_DIR?.trim() || "data"),
     frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://127.0.0.1:3000",
     fulfillerPrivateKey: normalizePrivateKey(fulfillerPrivateKey),
     gatewayAddress: (process.env.ARC_GATEWAY_ADDRESS ?? DEFAULT_GATEWAY_ADDRESS) as Address,

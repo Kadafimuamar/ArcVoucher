@@ -1,15 +1,16 @@
-import "dotenv/config";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
+import { prepareStoragePath, resolveStoreStoragePath, type StorageDiagnostics } from "../storage/dataDirectory.js";
 import type { StoredVoucher } from "./types.js";
 
-const storagePath = resolve(process.env.VOUCHER_DATA_DIR ?? "data", "vouchers.json");
+const storagePath = resolveStoreStoragePath("voucher");
 
 export class VoucherStore {
   private vouchers = new Map<string, StoredVoucher>();
+  private storageDiagnostics: StorageDiagnostics | null = null;
 
   async load(): Promise<void> {
-    console.log(`[voucherStore] Using storage path ${storagePath}`);
+    this.storageDiagnostics = await prepareStoragePath("voucherStore", storagePath);
     await mkdir(dirname(storagePath), { recursive: true });
 
     try {
@@ -39,6 +40,14 @@ export class VoucherStore {
 
   getStoragePath(): string {
     return storagePath;
+  }
+
+  isWritable(): boolean {
+    return Boolean(this.storageDiagnostics?.writable);
+  }
+
+  getStorageDiagnostics(): StorageDiagnostics | null {
+    return this.storageDiagnostics;
   }
 
   async upsert(voucher: StoredVoucher): Promise<void> {
