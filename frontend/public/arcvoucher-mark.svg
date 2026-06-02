@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ArcVoucher mark">
+  <rect width="64" height="64" rx="16" fill="#06141F"/>
+  <path d="M18 22.5C18 20.567 19.567 19 21.5 19H46V44.5C46 46.433 44.433 48 42.5 48H18V40.5C20.485 40.5 22.5 38.485 22.5 36C22.5 33.515 20.485 31.5 18 31.5V22.5Z" fill="url(#ticketGradient)"/>
+  <path d="M30.5 20.5C41.822 20.5 50.5 27.019 50.5 35C50.5 42.981 41.822 49.5 30.5 49.5C25.27 49.5 20.5 48.104 16.886 45.806" stroke="#7DE3FF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M42.5 19.5C37.359 13.944 27.844 12.478 19.667 15.96" stroke="#34D399" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="34" cy="34" r="8" fill="#06141F" fill-opacity=".18" stroke="#FFFFFF" stroke-width="2"/>
+  <path d="M34 28V40M29 31.5H36.5C38.157 31.5 39.5 32.843 39.5 34.5C39.5 36.157 38.157 37.5 36.5 37.5H29" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="ticketGradient" x1="18" y1="19" x2="48.64" y2="45.407" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset=".58" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+</svg>

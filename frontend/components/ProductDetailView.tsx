@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandedGiftCard } from "@/components/BrandedGiftCard";
 import { EmptyState, LoadingProductDetail, StateNotice } from "@/components/ReadState";
 import { StockBadge } from "@/components/StockBadge";
 import { useArcVoucherProduct } from "@/lib/contracts/productReads";
@@ -26,8 +27,8 @@ export function ProductDetailView({ productId }: { productId: number }) {
 
   return (
     <main className="mx-auto grid w-full max-w-[1200px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
-      <section className={`min-h-96 rounded-lg border border-zinc-200 ${product.surface} p-6 shadow-sm dark:border-white/10`}>
-        <div className={`h-full min-h-72 rounded-md bg-gradient-to-br ${product.accent} opacity-90 shadow-2xl shadow-black/30`} />
+      <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
+        <BrandedGiftCard brand={product.brand} className="min-h-96" name={product.name} priceLabel={formatUsdc(product.price)} />
       </section>
 
       <section className="flex flex-col justify-center">
@@ -46,10 +47,10 @@ export function ProductDetailView({ productId }: { productId: number }) {
         </div>
         <h1 className="text-3xl font-black leading-tight text-zinc-950 sm:text-5xl dark:text-white">{product.name}</h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 dark:text-zinc-300">
-          Digital voucher inventory read from ArcVoucherStore. Fulfillment stores only the voucher hash on-chain.
+          Buy a digital gift card with Arc native USDC or Unified Balance. Codes are delivered after payment confirmation and revealed only to the purchasing wallet.
         </p>
 
-        <div className="mt-8 grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-3 dark:border-white/10 dark:bg-zinc-900/70">
+        <div className="mt-8 grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4 dark:border-white/10 dark:bg-zinc-900/70">
           <div>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">Price</p>
             <p className="mt-1 text-lg font-semibold text-emerald-700 dark:text-emerald-200">{formatUsdc(product.price)}</p>
@@ -61,6 +62,10 @@ export function ProductDetailView({ productId }: { productId: number }) {
           <div>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">Product ID</p>
             <p className="mt-1 text-lg font-semibold text-zinc-950 dark:text-white">#{product.id}</p>
+          </div>
+          <div>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Delivery</p>
+            <p className="mt-1 text-lg font-semibold text-zinc-950 dark:text-white">Digital code</p>
           </div>
         </div>
 

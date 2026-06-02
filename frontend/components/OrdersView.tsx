@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { EmptyState, StateNotice } from "@/components/ReadState";
 import { WalletConnect } from "@/components/WalletConnect";
 import { formatUsdc } from "@/lib/format";
+import { getBrandVisualFromProductName } from "@/lib/products/brandVisuals";
 import { useUnifiedOrders, type UnifiedOrder, type UnifiedOrderSource, type UnifiedOrderStatus } from "@/lib/unifiedOrders";
 
 export function OrdersView() {
@@ -56,17 +58,23 @@ export function OrdersView() {
           </div>
           {orders.map((order) => {
             const orderHref = getOrderHref(order);
+            const visual = getBrandVisualFromProductName(order.productName);
 
             return (
               <article
                 className="grid gap-3 border-b border-zinc-100 px-4 py-4 last:border-b-0 dark:border-white/5 md:grid-cols-[1.5fr_170px_130px_130px_120px] md:items-center md:gap-4"
                 key={`${order.source}:${order.orderId}`}
               >
-                <div>
-                  <Link className="font-semibold text-zinc-950 underline-offset-4 hover:underline dark:text-white" href={orderHref}>
-                    {order.productName}
-                  </Link>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">Product #{order.productId}</p>
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-16 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white p-1.5 dark:border-white/10">
+                    <Image alt={`${visual.name} logo`} className="max-h-8 max-w-full object-contain" height={64} src={visual.logoPath} width={180} />
+                  </div>
+                  <div>
+                    <Link className="font-semibold text-zinc-950 underline-offset-4 hover:underline dark:text-white" href={orderHref}>
+                      {order.productName}
+                    </Link>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">Product #{order.productId}</p>
+                  </div>
                 </div>
                 <SourceBadge source={order.source} />
                 <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-300">{formatUsdc(BigInt(order.amount))}</span>

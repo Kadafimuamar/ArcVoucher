@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAccount, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -9,6 +10,7 @@ import { arcTestnet } from "@/lib/chains/arc";
 import { arcVoucherStoreAbi, arcVoucherStoreAddress } from "@/lib/contracts/arcVoucherStore";
 import { formatUsdc } from "@/lib/format";
 import { getAvailableStock, type Product } from "@/lib/products";
+import { getBrandVisual } from "@/lib/products/brandVisuals";
 import {
   getErrorText,
   isReceiptTimeoutError,
@@ -68,6 +70,7 @@ export function CheckoutPanel({ onPurchaseConfirmed, onRefreshState, product }: 
     }
   });
   const availableStock = getAvailableStock(product);
+  const visual = getBrandVisual(product.brand);
   const isOnArcTestnet = chainId === arcTestnet.id;
   const receiptTimedOut = isConfirmationSlow || (isReceiptError && isReceiptTimeoutError(receiptError));
   const hasAuthorizationIssue = Boolean(authorizationNotice) || isWalletAuthorizationError(writeError) || isWalletAuthorizationError(receiptError);
@@ -186,9 +189,14 @@ export function CheckoutPanel({ onPurchaseConfirmed, onRefreshState, product }: 
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-xl shadow-zinc-200/70 dark:border-white/10 dark:bg-zinc-900/80 dark:shadow-black/30">
       <div className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-5 dark:border-white/10">
-        <div>
-          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{product.brand}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-zinc-950 dark:text-white">{product.name}</h1>
+        <div className="flex items-start gap-3">
+          <div className="grid h-14 w-20 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white p-1.5 dark:border-white/10">
+            <Image alt={`${visual.name} logo`} className="max-h-9 max-w-full object-contain" height={64} src={visual.logoPath} width={180} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{product.brand}</p>
+            <h1 className="mt-1 text-2xl font-semibold text-zinc-950 dark:text-white">{product.name}</h1>
+          </div>
         </div>
         <StockBadge active={product.active} availableStock={availableStock} />
       </div>

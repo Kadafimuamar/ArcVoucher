@@ -7,7 +7,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ArcVoucher",
-  description: "Stablecoin-native gift card marketplace on Arc Testnet"
+  description: "Stablecoin-native gift card marketplace on Arc Testnet",
+  icons: {
+    icon: "/arcvoucher-mark.svg"
+  }
 };
 
 export default function RootLayout({

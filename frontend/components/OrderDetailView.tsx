@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useAccount } from "wagmi";
+import { BrandedGiftCard } from "@/components/BrandedGiftCard";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { EmptyState, LoadingProductDetail, StateNotice } from "@/components/ReadState";
 import { WalletConnect } from "@/components/WalletConnect";
@@ -227,11 +228,7 @@ function VoucherPanel({
 
         {isConnected && orderStatus === "Fulfilled" && reveal?.status === "ready" ? (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-300/25 dark:bg-emerald-300/10">
-            <p className="text-sm font-semibold text-zinc-950 dark:text-white">{productName}</p>
-            <p className="mt-4 text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-200">Voucher Code</p>
-            <code className="mt-2 block break-all rounded-md bg-white px-3 py-4 text-base font-semibold text-zinc-950 shadow-sm dark:bg-zinc-950/70 dark:text-white">
-              {reveal.voucher.voucherCode}
-            </code>
+            <BrandedGiftCard className="shadow-none" name={productName} voucherCode={reveal.voucher.voucherCode} />
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button
                 className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-black text-white transition hover:bg-zinc-800 dark:bg-emerald-300 dark:text-zinc-950"

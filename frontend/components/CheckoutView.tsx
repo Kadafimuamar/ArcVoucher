@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Hex } from "viem";
 import { useAccount, useSwitchChain } from "wagmi";
+import { BrandedGiftCard } from "@/components/BrandedGiftCard";
 import { CheckoutPanel } from "@/components/CheckoutPanel";
 import { EmptyState, LoadingProductDetail, StateNotice } from "@/components/ReadState";
 import { UnifiedBalanceDepositCard } from "@/components/UnifiedBalanceDepositCard";
@@ -591,9 +592,7 @@ export function CheckoutView({ productId }: { productId: number }) {
           </div>
         ) : null}
         <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
-          <div className={`flex h-44 items-end rounded-md ${product.surface} p-4`}>
-            <div className={`h-16 w-16 rounded-lg bg-gradient-to-br ${product.accent} shadow-lg shadow-black/20`} />
-          </div>
+          <BrandedGiftCard brand={product.brand} className="min-h-72" name={product.name} priceLabel={`${amountRequired} USDC`} />
           <div className="mt-5 flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{product.brand}</p>

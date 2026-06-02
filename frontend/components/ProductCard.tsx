@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandedGiftCard } from "@/components/BrandedGiftCard";
 import { StockBadge } from "@/components/StockBadge";
 import { formatUsdc } from "@/lib/format";
 import { getAvailableStock, type Product } from "@/lib/products";
@@ -9,9 +10,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <article className="group flex min-h-64 flex-col justify-between rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-2xl dark:shadow-black/20 dark:hover:border-white/20 dark:hover:bg-zinc-900">
       <div className="space-y-4">
-        <div className={`flex h-28 items-end rounded-md ${product.surface} p-4`}>
-          <div className={`h-14 w-14 rounded-md bg-gradient-to-br ${product.accent} shadow-lg shadow-black/30`} />
-        </div>
+        <BrandedGiftCard brand={product.brand} className="min-h-44" name={product.name} priceLabel={formatUsdc(product.price).replace(" USDC", "")} />
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
@@ -27,9 +26,9 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="text-base font-semibold text-emerald-700 dark:text-emerald-200">{formatUsdc(product.price)}</p>
         <Link
           className="inline-flex min-h-11 items-center rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600 dark:bg-white dark:text-zinc-950 dark:hover:bg-emerald-200"
-          href={`/product/${product.id}`}
+          href={`/checkout/${product.id}`}
         >
-          View
+          Buy
         </Link>
       </div>
     </article>

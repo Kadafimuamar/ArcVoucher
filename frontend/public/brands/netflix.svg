@@ -1,0 +1,7 @@
+<svg width="180" height="64" viewBox="0 0 180 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netflix">
+  <rect width="180" height="64" rx="14" fill="#000000"/>
+  <path d="M25 13H37L51 51H39L25 13Z" fill="#E50914"/>
+  <path d="M52 13H64V51H52V13Z" fill="#B20710"/>
+  <path d="M25 13H37V51H25V13Z" fill="#E50914"/>
+  <text x="82" y="41" fill="#E50914" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="25" font-weight="900" letter-spacing="1">NETFLIX</text>
+</svg>

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { BrandedGiftCard } from "@/components/BrandedGiftCard";
 import { MarketplaceProducts } from "@/components/MarketplaceProducts";
+import { formatUsdc } from "@/lib/format";
 import { demoProducts } from "@/lib/products";
 
 const supportedChains = ["Arc Testnet", "Base Sepolia", "Ethereum Sepolia"];
@@ -38,24 +40,18 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-xl shadow-zinc-200/60 backdrop-blur dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-black/20">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-white/10">
-            <div>
-              <p className="text-sm font-semibold text-zinc-950 dark:text-white">Demo checkout</p>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{demoProducts.length} seeded products</p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-300/10 dark:text-emerald-100">
-              USDC
-            </span>
+        <div className="relative min-h-[520px]">
+          <div className="absolute left-0 top-10 w-[78%] rotate-[-7deg] opacity-95">
+            <BrandedGiftCard brand={demoProducts[0].brand} name={demoProducts[0].name} priceLabel={formatUsdc(demoProducts[0].price)} />
           </div>
-          <div className="mt-5 space-y-4">
-            <ReceiptLine label="Product" value="Google Play Gift Card $10" />
-            <ReceiptLine label="Payment" value="Unified Balance" />
-            <ReceiptLine label="Network" value="Arc Testnet" />
-            <div className="rounded-lg bg-zinc-50 p-4 dark:bg-white/[0.04]">
-              <p className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">Total</p>
-              <p className="mt-1 text-3xl font-black text-zinc-950 dark:text-white">10 USDC</p>
-            </div>
+          <div className="absolute right-0 top-24 w-[78%] rotate-[5deg] opacity-95">
+            <BrandedGiftCard brand={demoProducts[3].brand} name={demoProducts[3].name} priceLabel={formatUsdc(demoProducts[3].price)} />
+          </div>
+          <div className="absolute bottom-0 left-8 right-8">
+            <BrandedGiftCard brand={demoProducts[6].brand} name={demoProducts[6].name} priceLabel={formatUsdc(demoProducts[6].price)} />
+          </div>
+          <div className="absolute right-5 top-5 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700 shadow-lg shadow-zinc-200/70 dark:border-emerald-300/25 dark:bg-zinc-950 dark:text-emerald-200 dark:shadow-black/30">
+            Unified Balance ready
           </div>
         </div>
       </section>
@@ -81,15 +77,6 @@ export default function HomePage() {
         <MarketplaceProducts limit={4} />
       </section>
     </main>
-  );
-}
-
-function ReceiptLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 text-sm">
-      <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-      <span className="font-semibold text-zinc-950 dark:text-white">{value}</span>
-    </div>
   );
 }
 

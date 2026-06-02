@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { WalletConnect } from "@/components/WalletConnect";
 
@@ -13,10 +14,8 @@ export function Navbar() {
       <nav className="mx-auto max-w-[1200px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <Link className="flex items-center gap-3" href="/">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-500 text-sm font-black text-white shadow-sm shadow-emerald-500/20 dark:bg-emerald-300 dark:text-zinc-950">
-              AV
-            </span>
-            <span className="text-base font-semibold text-zinc-950 dark:text-white">ArcVoucher</span>
+            <Image alt="ArcVoucher logo mark" className="h-9 w-9" height={36} src="/arcvoucher-mark.svg" width={36} />
+            <span className="text-base font-black text-zinc-950 dark:text-white">ArcVoucher</span>
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">
