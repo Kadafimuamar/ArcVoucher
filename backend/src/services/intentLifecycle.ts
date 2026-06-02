@@ -7,7 +7,10 @@ import { fulfillVerifiedIntent, getIntentVoucherId } from "./fulfillment.js";
 import { voucherStore } from "../vouchers/voucherStore.js";
 
 const intentExpirationMs = 15 * 60 * 1000;
+const canonicalUsdcDecimals = 6;
 const erc20TransferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const intentExpectedAmountDecimals = 18;
+const nativeUsdcTransferDecimals = 6;
 const zeroAddressTopic = `0x${"0".repeat(64)}`;
 
 export type CreateIntentInput = {
@@ -30,6 +33,7 @@ export type RetryConfirmSpendInput = {
 
 type DecodedTransferLog = {
   amount: string;
+  decimals: number | null;
   from: Address | null;
   isNativeUsdc: boolean;
   isRecipientCredit: boolean;
@@ -39,8 +43,13 @@ type DecodedTransferLog = {
 };
 
 type SpendVerificationDetails = {
+  comparisonResult: boolean;
   creditedAmount: string;
+  creditedAmountDecimals: number;
+  creditedAmountRaw: string;
   decodedTransferLogs: DecodedTransferLog[];
+  expectedAmount6Decimals: string;
+  expectedAmountRaw: string;
   receiptStatus: string | null;
   txFrom: Address | null;
   txTo: Address | null;
@@ -178,8 +187,10 @@ export async function getIntentSpendDebug(intentId: string | number | bigint) {
       if (verificationDetails.txTo?.toLowerCase() !== config.gatewayAddress.toLowerCase()) {
         verificationErrors.push("spend transaction was not sent to the Arc Gateway contract");
       }
-      if (verificationDetails.creditedAmount !== intent.expectedAmount) {
-        verificationErrors.push(`credited amount mismatch: expected ${intent.expectedAmount}, got ${verificationDetails.creditedAmount}`);
+      if (!verificationDetails.comparisonResult) {
+        verificationErrors.push(
+          `credited amount mismatch after decimal normalization: expected ${verificationDetails.expectedAmount6Decimals}, got ${verificationDetails.creditedAmount}`
+        );
       }
     } catch (error) {
       verificationErrors.push(getErrorMessage(error));
@@ -187,10 +198,16 @@ export async function getIntentSpendDebug(intentId: string | number | bigint) {
   }
 
   const voucher = voucherStore.get(getIntentVoucherId(intent.intentId));
+  const expectedAmount6Decimals = normalizeUsdcAmount(intent.expectedAmount, intentExpectedAmountDecimals).toString();
 
   return {
     buyer: intent.buyer,
+    comparisonResult: verificationDetails?.comparisonResult ?? false,
+    creditedAmountDecimals: verificationDetails?.creditedAmountDecimals ?? nativeUsdcTransferDecimals,
+    creditedAmountRaw: verificationDetails?.creditedAmountRaw ?? null,
     expectedAmount: intent.expectedAmount,
+    expectedAmount6Decimals,
+    expectedAmountRaw: intent.expectedAmount,
     gatewayExpected: config.gatewayAddress,
     intentStatus: intent.status,
     lastConfirmationError: intent.lastConfirmationError ?? intent.error ?? null,
@@ -284,10 +301,14 @@ async function verifySpendAndFulfillIntent({
 
     console.log(`[intent] ${source} verification`, {
       decodedTransferLogs: verification.decodedTransferLogs,
+      expectedAmount6Decimals: verification.expectedAmount6Decimals,
       expectedAmount: expectedAmount.toString(),
       expectedBuyer: intent.buyer,
       expectedGateway: config.gatewayAddress,
       expectedRecipient: recipient,
+      creditedAmountDecimals: verification.creditedAmountDecimals,
+      creditedAmountRaw: verification.creditedAmountRaw,
+      comparisonResult: verification.comparisonResult,
       intentExpired: new Date(intent.expiresAt).getTime() <= Date.now(),
       intentId,
       receiptStatus: verification.receiptStatus,
@@ -306,14 +327,16 @@ async function verifySpendAndFulfillIntent({
   }
 
   const creditedAmount = BigInt(verification.creditedAmount);
-  if (creditedAmount !== expectedAmount) {
-    throw new Error(`credited amount mismatch: expected ${expectedAmount.toString()}, got ${creditedAmount.toString()}`);
+  if (!verification.comparisonResult) {
+    throw new Error(
+      `credited amount mismatch after decimal normalization: expected ${verification.expectedAmount6Decimals}, got ${creditedAmount.toString()}`
+    );
   }
 
   const spendConfirmedAt = new Date().toISOString();
   const paidIntent = await intentStore.patchIntent(intent.intentId, {
     paidAt: spendConfirmedAt,
-    spendAmount: creditedAmount.toString(),
+    spendAmount: expectedAmount.toString(),
     spendConfirmedAt,
     spendRecipient: recipient,
     spendTxHash,
@@ -550,11 +573,36 @@ export function normalizePositiveBigInt(value: string | number | bigint, fieldNa
   }
 }
 
+export function normalizeUsdcAmount(amount: string | number | bigint, decimals: number): bigint {
+  const parsed = BigInt(amount);
+
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new Error("USDC amount decimals must be a non-negative integer");
+  }
+
+  if (decimals === canonicalUsdcDecimals) {
+    return parsed;
+  }
+
+  if (decimals > canonicalUsdcDecimals) {
+    const divisor = BigInt(10) ** BigInt(decimals - canonicalUsdcDecimals);
+
+    if (parsed % divisor !== BigInt(0)) {
+      throw new Error(`USDC amount ${parsed.toString()} cannot be safely normalized from ${decimals} to ${canonicalUsdcDecimals} decimals`);
+    }
+
+    return parsed / divisor;
+  }
+
+  return parsed * BigInt(10) ** BigInt(canonicalUsdcDecimals - decimals);
+}
+
 function isRepairableIntentStatus(status: StoredIntentStatus) {
   return status === "paid" || status === "voucher_fulfilled";
 }
 
 async function inspectSpendTransaction({
+  expectedAmount,
   expectedBuyer,
   recipient,
   spendTxHash
@@ -572,6 +620,8 @@ async function inspectSpendTransaction({
   const creditedAmount = decodedTransferLogs.reduce((sum, log) => {
     return log.isNativeUsdc && log.isZeroAddressMint && log.isRecipientCredit ? sum + BigInt(log.amount) : sum;
   }, BigInt(0));
+  const expectedAmount6Decimals = normalizeUsdcAmount(expectedAmount, intentExpectedAmountDecimals);
+  const creditedAmount6Decimals = normalizeUsdcAmount(creditedAmount, nativeUsdcTransferDecimals);
   const warnings: string[] = [];
 
   if (transaction.from.toLowerCase() !== expectedBuyer.toLowerCase()) {
@@ -579,8 +629,13 @@ async function inspectSpendTransaction({
   }
 
   return {
-    creditedAmount: creditedAmount.toString(),
+    comparisonResult: expectedAmount6Decimals === creditedAmount6Decimals,
+    creditedAmount: creditedAmount6Decimals.toString(),
+    creditedAmountDecimals: nativeUsdcTransferDecimals,
+    creditedAmountRaw: creditedAmount.toString(),
     decodedTransferLogs,
+    expectedAmount6Decimals: expectedAmount6Decimals.toString(),
+    expectedAmountRaw: expectedAmount.toString(),
     receiptStatus: receipt.status,
     txFrom: transaction.from,
     txTo: transaction.to,
@@ -601,15 +656,20 @@ function decodeTransferLogs(
 
   return logs
     .filter((log) => log.topics[0]?.toLowerCase() === erc20TransferTopic)
-    .map((log) => ({
-      amount: BigInt(log.data).toString(),
-      from: topicToAddress(log.topics[1]),
-      isNativeUsdc: log.address.toLowerCase() === config.nativeUsdcAddress.toLowerCase(),
-      isRecipientCredit: log.topics[2]?.toLowerCase() === recipientTopic,
-      isZeroAddressMint: log.topics[1]?.toLowerCase() === zeroAddressTopic,
-      logIndex: typeof log.logIndex === "number" ? log.logIndex : null,
-      to: topicToAddress(log.topics[2])
-    }));
+    .map((log) => {
+      const isNativeUsdc = log.address.toLowerCase() === config.nativeUsdcAddress.toLowerCase();
+
+      return {
+        amount: BigInt(log.data).toString(),
+        decimals: isNativeUsdc ? nativeUsdcTransferDecimals : null,
+        from: topicToAddress(log.topics[1]),
+        isNativeUsdc,
+        isRecipientCredit: log.topics[2]?.toLowerCase() === recipientTopic,
+        isZeroAddressMint: log.topics[1]?.toLowerCase() === zeroAddressTopic,
+        logIndex: typeof log.logIndex === "number" ? log.logIndex : null,
+        to: topicToAddress(log.topics[2])
+      };
+    });
 }
 
 function addressToTopic(address: Address): Hex {
